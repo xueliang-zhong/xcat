@@ -11,7 +11,7 @@ pub enum XcatError {
 impl fmt::Display for XcatError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Io(err, path) => write!(f, "xcat: {}: {}", path, err),
+            Self::Io(err, path) => write!(f, "xcat: {}: {}", path, io_error_message(err)),
             Self::Config(msg) => write!(f, "xcat: config error: {}", msg),
             Self::Mmap(err, path) => write!(f, "xcat: mmap error for {}: {}", path, err),
         }
@@ -21,3 +21,11 @@ impl fmt::Display for XcatError {
 impl std::error::Error for XcatError {}
 
 pub type XcatResult<T> = Result<T, XcatError>;
+
+fn io_error_message(err: &io::Error) -> String {
+    let message = err.to_string();
+    match message.rsplit_once(" (os error ") {
+        Some((prefix, suffix)) if suffix.ends_with(')') => prefix.to_string(),
+        _ => message,
+    }
+}

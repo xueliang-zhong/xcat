@@ -21,6 +21,7 @@ cargo run -- file.txt
 - Config file support at `~/.xcat/config.toml`
 - Fast streaming path for plain files and stdin
 - Lightweight highlighting for common shell, Rust, SQL, Dockerfile, Makefile, markup, and Lisp-family files
+- Per-file error reporting that keeps later inputs flowing, like GNU `cat`
 
 ## Docs
 

@@ -57,6 +57,20 @@ fn assert_matches_system_cat(args: &[&OsStr], stdin: Option<&[u8]>) {
     assert_eq!(xcat.stderr, cat.stderr);
 }
 
+fn assert_matches_system_cat_any_status(args: &[&OsStr], stdin: Option<&[u8]>) {
+    let xcat = run_command(xcat_binary().as_path(), args, stdin);
+    let cat = run_command(Path::new("cat"), args, stdin);
+
+    assert_eq!(xcat.status.code(), cat.status.code());
+    assert_eq!(xcat.stdout, cat.stdout);
+    assert_eq!(normalize_stderr(&xcat.stderr), cat.stderr);
+}
+
+fn normalize_stderr(stderr: &[u8]) -> Vec<u8> {
+    let text = String::from_utf8_lossy(stderr);
+    text.replace("xcat: ", "cat: ").into_bytes()
+}
+
 #[test]
 fn test_cat_single_file() {
     let file = write_temp_file("hello world\n");
@@ -156,6 +170,20 @@ fn test_cat_nonexistent_file() {
 }
 
 #[test]
+fn missing_file_before_valid_file_matches_system_cat() {
+    let file = write_temp_file("ok\n");
+    let arg = file.path().as_os_str();
+    assert_matches_system_cat_any_status(&[OsStr::new("/nonexistent/file.txt"), arg], None);
+}
+
+#[test]
+fn valid_file_before_missing_file_matches_system_cat() {
+    let file = write_temp_file("ok\n");
+    let arg = file.path().as_os_str();
+    assert_matches_system_cat_any_status(&[arg, OsStr::new("/nonexistent/file.txt")], None);
+}
+
+#[test]
 fn test_cat_no_args_reads_stdin() {
     let mut cmd = Command::cargo_bin("xcat").unwrap();
     cmd.write_stdin("from stdin\n")
@@ -205,6 +233,22 @@ fn test_cat_count_lines_preserves_plain_output() {
     assert!(output.status.success());
     assert!(output.stdout.starts_with(b"line1\nline2"));
     assert!(output.stdout.ends_with(b"Total lines: 2\n"));
+}
+
+#[test]
+fn count_lines_keeps_later_inputs_after_an_error() {
+    let file = write_temp_file("line1\nline2\n");
+    let arg = file.path().as_os_str();
+    let output = run_command(
+        xcat_binary().as_path(),
+        &[OsStr::new("-c"), OsStr::new("/nonexistent/file.txt"), arg],
+        None,
+    );
+
+    assert!(!output.status.success());
+    assert!(output.stdout.starts_with(b"line1\nline2\n"));
+    assert!(output.stdout.ends_with(b"Total lines: 2\n"));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("xcat"));
 }
 
 #[test]

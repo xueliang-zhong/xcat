@@ -34,7 +34,13 @@ pub fn run() -> i32 {
 
     let colorizer = Colorizer::new(opts.color_enabled, &opts.theme_name);
     match execute(&cli, &opts, &colorizer) {
-        Ok(_) => 0,
+        Ok(report) => {
+            if report.had_error {
+                1
+            } else {
+                0
+            }
+        }
         Err(err) => {
             eprintln!("{err}");
             1
@@ -42,11 +48,22 @@ pub fn run() -> i32 {
     }
 }
 
-pub fn execute(cli: &Cli, opts: &DisplayOptions, colorizer: &Colorizer) -> XcatResult<usize> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExecutionReport {
+    pub total_lines: usize,
+    pub had_error: bool,
+}
+
+pub fn execute(
+    cli: &Cli,
+    opts: &DisplayOptions,
+    colorizer: &Colorizer,
+) -> XcatResult<ExecutionReport> {
     let stdout = io::stdout();
     let mut out = io::BufWriter::new(stdout.lock());
     let mut state = StreamState::default();
     let mut total_lines = 0usize;
+    let mut had_error = false;
 
     let sources: Vec<&str> = if cli.files.is_empty() {
         vec!["-"]
@@ -55,7 +72,16 @@ pub fn execute(cli: &Cli, opts: &DisplayOptions, colorizer: &Colorizer) -> XcatR
     };
 
     for source in sources {
-        total_lines += process_source(source, opts, colorizer, &mut state, &mut out)?;
+        match process_source(source, opts, colorizer, &mut state, &mut out) {
+            Ok(lines) => total_lines += lines,
+            Err(err) if is_stdout_error(&err) => return Err(err),
+            Err(err) => {
+                out.flush()
+                    .map_err(|flush_err| XcatError::Io(flush_err, String::from("stdout")))?;
+                eprintln!("{err}");
+                had_error = true;
+            }
+        }
     }
 
     if opts.count_lines {
@@ -65,7 +91,10 @@ pub fn execute(cli: &Cli, opts: &DisplayOptions, colorizer: &Colorizer) -> XcatR
 
     out.flush()
         .map_err(|e| XcatError::Io(e, String::from("stdout")))?;
-    Ok(total_lines)
+    Ok(ExecutionReport {
+        total_lines,
+        had_error,
+    })
 }
 
 #[derive(Debug, Default)]
@@ -247,6 +276,10 @@ fn copy_fast<W: Write>(
 #[inline]
 fn can_fast_copy_plain(opts: &DisplayOptions, syntax_session_present: bool) -> bool {
     opts.should_render_plain_bytes() && !syntax_session_present
+}
+
+fn is_stdout_error(err: &XcatError) -> bool {
+    matches!(err, XcatError::Io(_, path) if path == "stdout")
 }
 
 fn copy_fast_counting<W: Write>(

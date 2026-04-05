@@ -26,6 +26,7 @@ xcat -b -E notes.txt
 - `--syntax NAME`: force a syntax profile for files or stdin; common aliases like `bash`, `dockerfile`, `makefile`, `markdown`, `json`, and `terraform` work too
 - `--list-themes`: print available palette names and exit
 - `-c`, `--count-lines`: print a summary count after concatenation
+- unreadable inputs are reported on stderr and later files still get processed, matching GNU `cat`
 
 ## Precedence
 
