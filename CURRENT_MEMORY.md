@@ -18,3 +18,4 @@
 - Lightweight comment-marker maps can cheaply expand coverage for Lisp-family files without adding a full syntax engine.
 - Filename-based heuristics are a cheap way to broaden default highlighting for extensionless build files like `Dockerfile` and `Makefile`, plus SQL and markup-heavy docs, without disturbing the byte-safe fast path.
 - An explicit `--syntax` / `color.syntax` hint is a useful escape hatch for stdin and mismatched filenames, but it should fall back to filename heuristics when the hint is unknown so default coverage is not lost.
+- Common editor/filetype aliases such as `dockerfile` and `makefile` should map onto the same lightweight syntax heuristics as their filename counterparts so stdin workflows keep color coverage.

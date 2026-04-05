@@ -294,6 +294,55 @@ fn syntax_hint_can_colorize_stdin_without_a_filename_hint() {
 }
 
 #[test]
+fn syntax_hint_dockerfile_alias_highlights_stdin() {
+    let mut cmd = Command::cargo_bin("xcat").unwrap();
+    cmd.arg("--color")
+        .arg("always")
+        .arg("--syntax")
+        .arg("dockerfile")
+        .write_stdin("FROM rust:1.78\nRUN cargo build\n")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\u{1b}["))
+        .stdout(predicate::str::contains("FROM"))
+        .stdout(predicate::str::contains("RUN"));
+}
+
+#[test]
+fn syntax_hint_makefile_alias_highlights_stdin() {
+    let mut cmd = Command::cargo_bin("xcat").unwrap();
+    cmd.arg("--color")
+        .arg("always")
+        .arg("--syntax")
+        .arg("makefile")
+        .write_stdin("ifdef DEBUG\nendif\n")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\u{1b}["))
+        .stdout(predicate::str::contains("ifdef"))
+        .stdout(predicate::str::contains("endif"));
+}
+
+#[test]
+fn unknown_syntax_hint_still_falls_back_to_filename_heuristics() {
+    let dir = TempDir::new().unwrap();
+    let file_path = dir.path().join("Dockerfile");
+    fs::write(&file_path, "FROM rust:1.78\nRUN cargo build\n").unwrap();
+
+    let mut cmd = Command::cargo_bin("xcat").unwrap();
+    cmd.arg("--color")
+        .arg("always")
+        .arg("--syntax")
+        .arg("unknown-language")
+        .arg(&file_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\u{1b}["))
+        .stdout(predicate::str::contains("FROM"))
+        .stdout(predicate::str::contains("RUN"));
+}
+
+#[test]
 fn colorized_dockerfile_uses_filename_specific_highlighter() {
     let dir = TempDir::new().unwrap();
     let file_path = dir.path().join("Dockerfile");

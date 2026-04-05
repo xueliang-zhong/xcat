@@ -23,7 +23,7 @@ xcat -b -E notes.txt
 - `-u`: ignored, kept for GNU `cat` compatibility
 - `--color auto|always|never`: control ANSI color emission
 - `--theme NAME`: select a palette
-- `--syntax NAME`: force a syntax profile for files or stdin
+- `--syntax NAME`: force a syntax profile for files or stdin; common aliases like `bash`, `dockerfile`, `makefile`, `markdown`, `json`, and `terraform` work too
 - `--list-themes`: print available palette names and exit
 - `-c`, `--count-lines`: print a summary count after concatenation
 
@@ -35,3 +35,4 @@ xcat -b -E notes.txt
 - Empty arguments or `-` read from stdin
 - `--list-themes` bypasses config loading so it still works even if `~/.xcat/config.toml` is broken
 - `--syntax` can force a language profile for piped content that does not have a helpful filename
+- if a syntax hint is unknown, xcat falls back to filename heuristics instead of dropping color

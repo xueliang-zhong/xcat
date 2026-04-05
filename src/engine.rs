@@ -272,25 +272,41 @@ fn syntax_session_from_path(path: &Path) -> SyntaxSession {
 fn syntax_session_for_hint(hint: &str) -> Option<SyntaxSession> {
     let normalized = hint.trim().to_ascii_lowercase();
     let fake_path = match normalized.as_str() {
+        "bash" | "fish" | "sh" | "shell" | "zsh" => "file.sh",
+        "c" | "h" => "file.c",
+        "cc" | "cpp" | "cxx" | "c++" | "hpp" | "hh" | "hxx" => "file.cpp",
+        "clj" | "cljc" | "cljs" | "clojure" | "el" | "elisp" | "lisp" | "rkt" | "scm"
+        | "scheme" | "ss" => "file.clj",
         "cmake" => "CMakeLists.txt",
-        "gradle" => "build.gradle",
-        "groovy" => "build.gradle",
+        "containerfile" | "dockerfile" => "Dockerfile",
+        "dart" => "file.dart",
+        "go" => "file.go",
+        "gradle" | "groovy" => "build.gradle",
         "gradle-kts" | "kotlin" | "kts" => "build.gradle.kts",
+        "hcl" | "terraform" | "tf" => "main.tf",
+        "html" | "htm" => "file.html",
+        "ini" | "cfg" | "conf" => "file.ini",
+        "java" => "file.java",
+        "javascript" | "js" | "jsx" => "file.js",
         "json" => "file.json",
-        "jsonc" => "file.jsonc",
+        "json5" | "jsonc" => "file.jsonc",
         "lua" => "file.lua",
-        "markdown" | "md" => "README.md",
-        "terraform" | "tf" | "hcl" => "main.tf",
-        "tfvars" => "main.tfvars",
-        "zig" => "build.zig",
-        "yaml" | "yml" => "file.yaml",
-        "toml" => "file.toml",
-        "html" => "file.html",
-        "xml" => "file.xml",
-        "rust" | "rs" => "file.rs",
+        "make" | "makefile" | "gnumakefile" => "Makefile",
+        "markdown" | "md" | "mdx" => "README.md",
+        "org" | "rst" | "adoc" | "asciidoc" => "file.md",
+        "perl" | "pl" => "file.pl",
+        "php" => "file.php",
+        "psql" | "sql" => "file.sql",
         "python" | "py" => "file.py",
-        "javascript" | "js" => "file.js",
-        "typescript" | "ts" => "file.ts",
+        "ruby" | "rb" => "file.rb",
+        "rust" | "rs" => "file.rs",
+        "scala" => "file.scala",
+        "swift" => "file.swift",
+        "toml" => "file.toml",
+        "ts" | "tsx" | "typescript" => "file.ts",
+        "yaml" | "yml" => "file.yaml",
+        "zig" => "build.zig",
+        "cs" | "csharp" => "file.cs",
         _ => return None,
     };
 
@@ -1153,5 +1169,46 @@ mod tests {
         assert!(rendered.contains("# build comment"));
         assert!(rendered.contains("ifdef"));
         assert!(rendered.contains("endif"));
+    }
+
+    #[test]
+    fn syntax_hints_accept_common_editor_aliases() {
+        let test_opts = {
+            let mut opts = opts();
+            opts.syntax_highlighting = true;
+            opts
+        };
+        let colorizer = Colorizer::new(true, "default");
+
+        let mut docker_out = Vec::new();
+        let mut docker = syntax_session_for_hint("dockerfile").unwrap();
+        highlight_line(
+            &mut docker_out,
+            &mut docker,
+            "FROM rust:1.78",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+
+        let mut make_out = Vec::new();
+        let mut make = syntax_session_for_hint("makefile").unwrap();
+        highlight_line(
+            &mut make_out,
+            &mut make,
+            "ifdef DEBUG",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+
+        let docker_rendered = String::from_utf8(docker_out).unwrap();
+        let make_rendered = String::from_utf8(make_out).unwrap();
+        assert!(docker_rendered.contains("\u{1b}["));
+        assert!(docker_rendered.contains("FROM"));
+        assert!(make_rendered.contains("\u{1b}["));
+        assert!(make_rendered.contains("ifdef"));
     }
 }

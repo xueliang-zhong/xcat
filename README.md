@@ -16,7 +16,7 @@ cargo run -- file.txt
 - GNU compatibility flags: `-e`, `-t`, `-u`
 - TTY-aware color output with `--color auto|always|never`
 - Theme selection with `--theme`
-- Optional syntax override with `--syntax` and `color.syntax`
+- Optional syntax override with `--syntax` and `color.syntax`, including common aliases like `bash`, `dockerfile`, `makefile`, and `json`
 - `--list-themes` to print the built-in palette names
 - Config file support at `~/.xcat/config.toml`
 - Fast streaming path for plain files and stdin
