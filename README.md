@@ -7,7 +7,7 @@ It keeps the plain-byte fast path intact while still coloring common code, SQL, 
 
 ```bash
 cargo build --release
-cargo run -- file.txt
+cargo run -- README.md
 ```
 
 ## Highlights
