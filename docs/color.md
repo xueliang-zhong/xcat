@@ -36,3 +36,4 @@ The default offline highlighter uses lightweight token rules for common language
 This keeps the binary working without external syntax databases while still making code easier to scan in `less`, `vim`, and `fzf`.
 The same rules apply to stdin when color output is enabled.
 In practice, `xcat --color always -` will colorize piped text as well as files.
+Common Lisp-family files such as `*.el`, `*.clj`, `*.rkt`, and `*.scm` also pick up simple line-comment highlighting, and CRLF text stays eligible for highlighting when end markers are off.

@@ -17,3 +17,5 @@ timestamp_utc	generation	status	commit	note
 2026-04-05T13:35:41Z	10	passed	31bbc0994150a4854ac198ad6925bcdbcc80ea09	--list-themes now skips config loading; added malformed-config regression and docs
 2026-04-05T13:36:31Z	2	committed	b0ab17394e050a3a243036dec606225e3c20fb60	HEAD advanced
 2026-04-05T13:40:57Z	11	passed	f261e68b1f929f8a9ed3afb85434069451cb300f	derived Default cleanup after clippy; committed byte-safe xcat/docs state
+2026-04-05T13:41:26Z	3	committed	11ba2aabf88ddb550ef6aaf3a01bc2ba55c3c31c	HEAD advanced
+2026-04-05T13:43:49Z	12	passed	-	CRLF-aware syntax highlighting plus Lisp-family comment markers; tests, docs, and memory updated

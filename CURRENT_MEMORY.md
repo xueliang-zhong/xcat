@@ -14,3 +14,5 @@
 - Direct ANSI writes beat assembling full highlighted lines in `String`s; keep plain spans batched and emit styled prefixes/suffixes only around the transformed tokens.
 - Commands that do not need user config, such as `--list-themes`, should bypass config loading so malformed `~/.xcat/config.toml` files do not block purely informational flows.
 - Let `clippy` collapse boilerplate `Default` impls on config enums and zero-value structs; it keeps serde defaults aligned and trims maintenance noise without changing behavior.
+- Syntax highlighting can stay eligible for CRLF text when `-E` is off; only block the trailing `\r` case that would render raw markers incorrectly.
+- Lightweight comment-marker maps can cheaply expand coverage for Lisp-family files without adding a full syntax engine.

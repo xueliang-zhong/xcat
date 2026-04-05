@@ -205,7 +205,11 @@ fn process_reader_with_syntax<R: BufRead, W: Write>(
 }
 
 fn should_use_syntax_highlighting(opts: &DisplayOptions, body: &[u8]) -> bool {
-    opts.syntax_highlighting && !opts.show_tabs && !opts.show_nonprinting && !body.contains(&b'\r')
+    if !opts.syntax_highlighting || opts.show_tabs || opts.show_nonprinting {
+        return false;
+    }
+
+    !(opts.show_ends && body.ends_with(b"\r"))
 }
 
 fn copy_fast<W: Write>(
@@ -501,6 +505,8 @@ fn comment_markers_for_path(path: &Path) -> &'static [&'static str] {
     {
         "sh" | "bash" | "zsh" | "fish" | "py" | "rb" | "pl" | "r" | "yml" | "yaml" | "toml"
         | "ini" | "cfg" | "conf" | "dockerfile" | "mk" | "make" => &["#"],
+        "clj" | "cljs" | "cljc" | "cljfmt" | "clojure" | "el" | "elisp" | "hy" | "lisp" | "rkt"
+        | "scm" | "ss" | "scheme" => &[";"],
         "sql" | "psql" => &["--", "#"],
         "html" | "htm" | "xml" | "xhtml" | "svg" => &["<!--"],
         "rs" | "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "java" | "js" | "jsx" | "ts"
@@ -671,5 +677,58 @@ mod tests {
         assert!(rendered.contains("\u{1b}["));
         assert!(rendered.contains("let"));
         assert!(rendered.contains("42"));
+    }
+
+    #[test]
+    fn crlf_lines_can_still_use_syntax_highlighting_when_end_markers_are_off() {
+        let mut test_opts = opts();
+        test_opts.syntax_highlighting = true;
+        let mut syntax = syntax_session_for_path(Path::new("main.rs"), &test_opts).unwrap();
+        let colorizer = Colorizer::new(true, "default");
+        let mut reader = io::Cursor::new(b"fn main() {\r\n".to_vec());
+        let mut out = Vec::new();
+        let mut state = StreamState::default();
+
+        process_reader_with_syntax(
+            &mut reader,
+            "main.rs",
+            &test_opts,
+            &colorizer,
+            &mut state,
+            &mut out,
+            Some(&mut syntax),
+        )
+        .unwrap();
+
+        let rendered = String::from_utf8(out).unwrap();
+        assert!(rendered.contains("\u{1b}["));
+        assert!(rendered.contains("fn"));
+        assert!(rendered.ends_with("\r\n"));
+    }
+
+    #[test]
+    fn lisp_family_files_get_comment_highlighting() {
+        let test_opts = {
+            let mut opts = opts();
+            opts.syntax_highlighting = true;
+            opts
+        };
+        let mut syntax = syntax_session_for_path(Path::new("init.el"), &test_opts).unwrap();
+        let colorizer = Colorizer::new(true, "default");
+        let mut out = Vec::new();
+
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "; comment",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+
+        let rendered = String::from_utf8(out).unwrap();
+        assert!(rendered.contains("\u{1b}["));
+        assert!(rendered.contains("; comment"));
     }
 }

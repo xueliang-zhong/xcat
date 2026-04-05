@@ -18,6 +18,7 @@ cargo run -- file.txt
 - `--list-themes` to print the built-in palette names
 - Config file support at `~/.xcat/config.toml`
 - Fast streaming path for plain files and stdin
+- Lightweight highlighting for common shell, Rust, SQL, markup, and Lisp-family files
 
 ## Docs
 
