@@ -303,3 +303,19 @@ mode = "never"
         .success()
         .stdout("     1\talpha\n     2\tbeta\n");
 }
+
+#[test]
+fn list_themes_does_not_require_a_valid_config_file() {
+    let home = TempDir::new().unwrap();
+    let config_dir = home.path().join(".xcat");
+    fs::create_dir_all(&config_dir).unwrap();
+    fs::write(config_dir.join("config.toml"), "this is not valid toml").unwrap();
+
+    let mut cmd = Command::cargo_bin("xcat").unwrap();
+    cmd.env("HOME", home.path())
+        .arg("--list-themes")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("default"))
+        .stdout(predicate::str::contains("catppuccin"));
+}

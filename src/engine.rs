@@ -13,6 +13,14 @@ use crate::reader::{
 
 pub fn run() -> i32 {
     let cli = Cli::parse_args();
+
+    if cli.list_themes {
+        for theme in Colorizer::available_themes() {
+            println!("{theme}");
+        }
+        return 0;
+    }
+
     let config = match Config::load() {
         Ok(config) => config,
         Err(err) => {
@@ -23,13 +31,6 @@ pub fn run() -> i32 {
 
     let stdout_is_terminal = io::stdout().is_terminal();
     let opts = DisplayOptions::from_cli_and_config(&cli, &config, stdout_is_terminal);
-
-    if opts.list_themes {
-        for theme in Colorizer::available_themes() {
-            println!("{theme}");
-        }
-        return 0;
-    }
 
     let colorizer = Colorizer::new(opts.color_enabled, &opts.theme_name);
     match execute(&cli, &opts, &colorizer) {
