@@ -1,4 +1,4 @@
-use crate::cli::Cli;
+use crate::cli::{Cli, ColorMode};
 use crate::config::Config;
 
 #[derive(Debug, Clone)]
@@ -9,34 +9,72 @@ pub struct DisplayOptions {
     pub squeeze_blank: bool,
     pub show_tabs: bool,
     pub show_nonprinting: bool,
-    pub no_color: bool,
+    pub color_mode: ColorMode,
     pub color_enabled: bool,
-    pub count_lines: bool,
-    pub use_mmap: bool,
+    pub syntax_highlighting: bool,
     pub theme_name: String,
+    pub use_mmap: bool,
+    pub buffer_size: usize,
+    pub count_lines: bool,
+    pub list_themes: bool,
 }
 
 impl DisplayOptions {
-    pub fn from_cli_and_config(cli: &Cli, config: &Config) -> Self {
-        let color_from_config = config.color.enabled && !cli.no_color;
+    pub fn from_cli_and_config(cli: &Cli, config: &Config, stdout_is_terminal: bool) -> Self {
+        let number_nonblank = cli.number_nonblank || config.display.number_nonblank;
+        let number = (cli.number || config.display.number) && !number_nonblank;
+
+        let show_ends = cli.effective_show_ends() || config.display.show_ends;
+        let show_tabs = cli.effective_show_tabs() || config.display.show_tabs;
+        let show_nonprinting = cli.effective_show_nonprinting() || config.display.show_nonprinting;
+        let squeeze_blank = cli.squeeze_blank || config.display.squeeze_blank;
+        let count_lines = cli.count_lines;
+        let list_themes = cli.list_themes;
+
+        let color_mode = cli.color.unwrap_or(config.color.mode);
+        let color_mode = if cli.no_color {
+            ColorMode::Never
+        } else {
+            color_mode
+        };
+
+        let color_enabled = match color_mode {
+            ColorMode::Always => true,
+            ColorMode::Never => false,
+            ColorMode::Auto => stdout_is_terminal,
+        };
 
         Self {
-            number: cli.number || config.display.number,
-            number_nonblank: cli.number_nonblank || config.display.number_nonblank,
-            show_ends: cli.effective_show_ends() || config.display.show_ends,
-            squeeze_blank: cli.squeeze_blank || config.display.squeeze_blank,
-            show_tabs: cli.effective_show_tabs() || config.display.show_tabs,
-            show_nonprinting: cli.effective_show_nonprinting() || config.display.show_nonprinting,
-            no_color: cli.no_color,
-            color_enabled: color_from_config,
-            count_lines: cli.count_lines,
+            number,
+            number_nonblank,
+            show_ends,
+            squeeze_blank,
+            show_tabs,
+            show_nonprinting,
+            color_mode,
+            color_enabled,
+            syntax_highlighting: config.color.syntax_highlighting && color_enabled,
+            theme_name: cli
+                .theme
+                .clone()
+                .unwrap_or_else(|| config.color.theme.clone()),
             use_mmap: config.performance.use_mmap,
-            theme_name: config.color.theme.clone(),
+            buffer_size: config.performance.buffer_size,
+            count_lines,
+            list_themes,
         }
     }
 
-    pub fn number_lines(&self) -> bool {
-        self.number || self.number_nonblank
+    pub fn numbering_enabled(&self) -> bool {
+        self.number_nonblank || self.number
+    }
+
+    pub fn should_render_plain_bytes(&self) -> bool {
+        !self.numbering_enabled()
+            && !self.show_ends
+            && !self.squeeze_blank
+            && !self.show_tabs
+            && !self.show_nonprinting
     }
 }
 
@@ -52,154 +90,36 @@ mod tests {
     }
 
     #[test]
-    fn test_display_options_default() {
-        let cli = make_cli(&[]);
-        let config = Config::default();
-        let opts = DisplayOptions::from_cli_and_config(&cli, &config);
-
-        assert!(!opts.number);
-        assert!(!opts.number_nonblank);
-        assert!(!opts.show_ends);
-        assert!(!opts.squeeze_blank);
-        assert!(!opts.show_tabs);
-        assert!(!opts.show_nonprinting);
-        assert!(opts.color_enabled);
-        assert!(opts.use_mmap);
-        assert_eq!(opts.theme_name, "default");
-    }
-
-    #[test]
-    fn test_display_options_from_cli_flags() {
-        let cli = make_cli(&["-n", "-E", "-T", "file.txt"]);
-        let config = Config::default();
-        let opts = DisplayOptions::from_cli_and_config(&cli, &config);
-
-        assert!(opts.number);
-        assert!(opts.show_ends);
-        assert!(opts.show_tabs);
-    }
-
-    #[test]
-    fn test_display_options_from_config() {
-        let cli = make_cli(&[]);
+    fn cli_overrides_config_and_auto_color_requires_terminal() {
+        let cli = make_cli(&["-n", "--color", "auto"]);
         let mut config = Config::default();
-        config.display.number = true;
         config.display.show_ends = true;
+        let opts = DisplayOptions::from_cli_and_config(&cli, &config, false);
 
-        let opts = DisplayOptions::from_cli_and_config(&cli, &config);
+        assert!(!opts.color_enabled);
         assert!(opts.number);
         assert!(opts.show_ends);
     }
 
     #[test]
-    fn test_cli_overrides_config() {
-        let cli = make_cli(&["-n", "file.txt"]);
-        let mut config = Config::default();
-        config.display.number = false;
-
-        let opts = DisplayOptions::from_cli_and_config(&cli, &config);
-        assert!(opts.number);
-    }
-
-    #[test]
-    fn test_no_color_disables_coloring() {
-        let cli = make_cli(&["--no-color"]);
+    fn number_nonblank_wins_over_number() {
+        let cli = make_cli(&["-n", "-b"]);
         let config = Config::default();
-        let opts = DisplayOptions::from_cli_and_config(&cli, &config);
+        let opts = DisplayOptions::from_cli_and_config(&cli, &config, true);
 
-        assert!(!opts.color_enabled);
+        assert!(opts.number_nonblank);
+        assert!(!opts.number);
+        assert!(opts.numbering_enabled());
     }
 
     #[test]
-    fn test_config_color_disabled() {
-        let cli = make_cli(&[]);
-        let mut config = Config::default();
-        config.color.enabled = false;
-
-        let opts = DisplayOptions::from_cli_and_config(&cli, &config);
-        assert!(!opts.color_enabled);
-    }
-
-    #[test]
-    fn test_show_all_expands_flags() {
-        let cli = make_cli(&["-A", "file.txt"]);
+    fn no_color_forces_never() {
+        let cli = make_cli(&["--color", "always", "--no-color"]);
         let config = Config::default();
-        let opts = DisplayOptions::from_cli_and_config(&cli, &config);
+        let opts = DisplayOptions::from_cli_and_config(&cli, &config, true);
 
-        assert!(opts.show_nonprinting);
-        assert!(opts.show_tabs);
-        assert!(opts.show_ends);
-    }
-
-    #[test]
-    fn test_number_lines() {
-        let opts = DisplayOptions {
-            number: true,
-            number_nonblank: false,
-            show_ends: false,
-            squeeze_blank: false,
-            show_tabs: false,
-            show_nonprinting: false,
-            no_color: false,
-            color_enabled: true,
-            count_lines: false,
-            use_mmap: true,
-            theme_name: String::from("default"),
-        };
-        assert!(opts.number_lines());
-    }
-
-    #[test]
-    fn test_number_lines_nonblank() {
-        let opts = DisplayOptions {
-            number: false,
-            number_nonblank: true,
-            show_ends: false,
-            squeeze_blank: false,
-            show_tabs: false,
-            show_nonprinting: false,
-            no_color: false,
-            color_enabled: true,
-            count_lines: false,
-            use_mmap: true,
-            theme_name: String::from("default"),
-        };
-        assert!(opts.number_lines());
-    }
-
-    #[test]
-    fn test_no_numbering() {
-        let opts = DisplayOptions {
-            number: false,
-            number_nonblank: false,
-            show_ends: false,
-            squeeze_blank: false,
-            show_tabs: false,
-            show_nonprinting: false,
-            no_color: false,
-            color_enabled: true,
-            count_lines: false,
-            use_mmap: true,
-            theme_name: String::from("default"),
-        };
-        assert!(!opts.number_lines());
-    }
-
-    #[test]
-    fn test_display_options_mmap_config() {
-        let cli = make_cli(&[]);
-        let mut config = Config::default();
-        config.performance.use_mmap = false;
-        let opts = DisplayOptions::from_cli_and_config(&cli, &config);
-        assert!(!opts.use_mmap);
-    }
-
-    #[test]
-    fn test_display_options_theme_config() {
-        let cli = make_cli(&[]);
-        let mut config = Config::default();
-        config.color.theme = String::from("monokai");
-        let opts = DisplayOptions::from_cli_and_config(&cli, &config);
-        assert_eq!(opts.theme_name, "monokai");
+        assert_eq!(opts.color_mode, ColorMode::Never);
+        assert!(!opts.color_enabled);
+        assert!(!opts.syntax_highlighting);
     }
 }

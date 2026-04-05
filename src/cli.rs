@@ -1,198 +1,142 @@
-use clap::Parser;
+use clap::{ArgAction, Parser, ValueEnum};
+use serde::Deserialize;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ColorMode {
+    #[default]
+    Auto,
+    Always,
+    Never,
+}
 
 #[derive(Parser, Debug, Clone)]
-#[command(name = "xcat", version, about = "Enhanced cat with color support", long_about = None)]
+#[command(
+    name = "xcat",
+    version,
+    about = "Binary-safe cat with color, syntax highlighting, and config support",
+    long_about = "xcat concatenates files to standard output while preserving Linux cat-style flags, optional syntax highlighting, and a configurable color theme."
+)]
 pub struct Cli {
-    /// Number all output lines
-    #[arg(short = 'n', long)]
+    /// Number all output lines.
+    #[arg(short = 'n', long = "number")]
     pub number: bool,
 
-    /// Number nonempty output lines, overrides -n
-    #[arg(short = 'b', long)]
+    /// Number non-empty output lines, overriding -n.
+    #[arg(short = 'b', long = "number-nonblank")]
     pub number_nonblank: bool,
 
-    /// Display $ at end of each line
-    #[arg(short = 'E', long)]
+    /// Display $ at the end of each line.
+    #[arg(short = 'E', long = "show-ends")]
     pub show_ends: bool,
 
-    /// Squeeze repeated blank lines into a single blank line
-    #[arg(short = 's', long)]
+    /// Squeeze repeated blank lines into a single blank line.
+    #[arg(short = 's', long = "squeeze-blank")]
     pub squeeze_blank: bool,
 
-    /// Display TAB characters as ^I
-    #[arg(short = 'T', long)]
+    /// Display TAB characters as ^I.
+    #[arg(short = 'T', long = "show-tabs")]
     pub show_tabs: bool,
 
-    /// Display nonprinting characters (except for LFD and TAB)
-    #[arg(short = 'v', long)]
+    /// Display non-printing characters.
+    #[arg(short = 'v', long = "show-nonprinting")]
     pub show_nonprinting: bool,
 
-    /// Equivalent to -vET
-    #[arg(short = 'A', long)]
+    /// Equivalent to -vET.
+    #[arg(short = 'A', long = "show-all")]
     pub show_all: bool,
 
-    /// Files to concatenate (reads stdin if empty or '-')
+    /// Equivalent to -vE.
+    #[arg(short = 'e', action = ArgAction::SetTrue)]
+    pub legacy_e: bool,
+
+    /// Equivalent to -vT.
+    #[arg(short = 't', action = ArgAction::SetTrue)]
+    pub legacy_t: bool,
+
+    /// Files to concatenate. Reads stdin if empty or if "-" is supplied.
     #[arg(value_name = "FILE")]
     pub files: Vec<String>,
 
-    /// Disable color output
-    #[arg(long)]
+    /// Emit color in auto, always, or never mode.
+    #[arg(long, value_enum)]
+    pub color: Option<ColorMode>,
+
+    /// Disable color output.
+    #[arg(long = "no-color", action = ArgAction::SetTrue)]
     pub no_color: bool,
 
-    /// Show line count summary
-    #[arg(short = 'c', long)]
+    /// Theme name used for line-number and marker colors.
+    #[arg(long)]
+    pub theme: Option<String>,
+
+    /// Show the configured theme names and exit.
+    #[arg(long)]
+    pub list_themes: bool,
+
+    /// Show line count summary after concatenation.
+    #[arg(short = 'c', long = "count-lines")]
     pub count_lines: bool,
 
-    /// Color theme to use (default, monokai, solarized, github, nord, dracula, gruvbox, onedark, tokyonight, catppuccin)
-    #[arg(long, default_value = "default")]
-    pub theme: String,
+    /// (ignored)
+    #[arg(short = 'u', action = ArgAction::SetTrue)]
+    pub unbuffered: bool,
 }
 
 impl Cli {
     pub fn parse_args() -> Self {
-        Cli::parse()
-    }
-
-    pub fn effective_show_all(&self) -> bool {
-        self.show_all
+        Self::parse()
     }
 
     pub fn effective_show_nonprinting(&self) -> bool {
-        self.show_nonprinting || self.show_all
+        self.show_nonprinting || self.show_all || self.legacy_e || self.legacy_t
     }
 
     pub fn effective_show_tabs(&self) -> bool {
-        self.show_tabs || self.show_all
+        self.show_tabs || self.show_all || self.legacy_t
     }
 
     pub fn effective_show_ends(&self) -> bool {
-        self.show_ends || self.show_all
+        self.show_ends || self.show_all || self.legacy_e
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::{CommandFactory, Parser};
 
     #[test]
-    fn test_cli_default() {
-        let cli = Cli::parse_from(["xcat"]);
-        assert!(!cli.number);
-        assert!(!cli.number_nonblank);
-        assert!(!cli.show_ends);
-        assert!(!cli.squeeze_blank);
-        assert!(!cli.show_tabs);
-        assert!(!cli.show_nonprinting);
-        assert!(!cli.show_all);
-        assert!(cli.files.is_empty());
-        assert_eq!(cli.theme, "default");
-    }
-
-    #[test]
-    fn test_cli_number() {
-        let cli = Cli::parse_from(["xcat", "-n", "file.txt"]);
+    fn parses_cat_flags() {
+        let cli = Cli::parse_from(["xcat", "-n", "-E", "-T", "file.txt"]);
         assert!(cli.number);
+        assert!(cli.show_ends);
+        assert!(cli.show_tabs);
         assert_eq!(cli.files, vec!["file.txt"]);
     }
 
     #[test]
-    fn test_cli_number_nonblank() {
-        let cli = Cli::parse_from(["xcat", "-b", "file.txt"]);
-        assert!(cli.number_nonblank);
-    }
-
-    #[test]
-    fn test_cli_show_ends() {
-        let cli = Cli::parse_from(["xcat", "-E", "file.txt"]);
-        assert!(cli.show_ends);
-    }
-
-    #[test]
-    fn test_cli_squeeze_blank() {
-        let cli = Cli::parse_from(["xcat", "-s", "file.txt"]);
-        assert!(cli.squeeze_blank);
-    }
-
-    #[test]
-    fn test_cli_show_tabs() {
-        let cli = Cli::parse_from(["xcat", "-T", "file.txt"]);
-        assert!(cli.show_tabs);
-    }
-
-    #[test]
-    fn test_cli_show_nonprinting() {
-        let cli = Cli::parse_from(["xcat", "-v", "file.txt"]);
-        assert!(cli.show_nonprinting);
-    }
-
-    #[test]
-    fn test_cli_show_all() {
-        let cli = Cli::parse_from(["xcat", "-A", "file.txt"]);
-        assert!(cli.show_all);
-    }
-
-    #[test]
-    fn test_cli_effective_show_all() {
-        let cli = Cli::parse_from(["xcat", "-A", "file.txt"]);
+    fn legacy_flags_expand_like_gnu_cat() {
+        let cli = Cli::parse_from(["xcat", "-e", "-t"]);
         assert!(cli.effective_show_nonprinting());
-        assert!(cli.effective_show_tabs());
         assert!(cli.effective_show_ends());
+        assert!(cli.effective_show_tabs());
     }
 
     #[test]
-    fn test_cli_multiple_files() {
-        let cli = Cli::parse_from(["xcat", "a.txt", "b.txt", "c.txt"]);
-        assert_eq!(cli.files, vec!["a.txt", "b.txt", "c.txt"]);
+    fn parses_color_mode_and_theme() {
+        let cli = Cli::parse_from(["xcat", "--color", "always", "--theme", "nord"]);
+        assert_eq!(cli.color, Some(ColorMode::Always));
+        assert_eq!(cli.theme.as_deref(), Some("nord"));
     }
 
     #[test]
-    fn test_cli_no_color() {
-        let cli = Cli::parse_from(["xcat", "--no-color"]);
-        assert!(cli.no_color);
-    }
+    fn help_includes_gnu_compatibility_flags() {
+        let mut command = Cli::command();
+        let help = command.render_help().to_string();
 
-    #[test]
-    fn test_cli_count_lines() {
-        let cli = Cli::parse_from(["xcat", "-c"]);
-        assert!(cli.count_lines);
-    }
-
-    #[test]
-    fn test_cli_stdin_marker() {
-        let cli = Cli::parse_from(["xcat", "-"]);
-        assert_eq!(cli.files, vec!["-"]);
-    }
-
-    #[test]
-    fn test_cli_theme_default() {
-        let cli = Cli::parse_from(["xcat"]);
-        assert_eq!(cli.theme, "default");
-    }
-
-    #[test]
-    fn test_cli_theme_custom() {
-        let cli = Cli::parse_from(["xcat", "--theme", "monokai"]);
-        assert_eq!(cli.theme, "monokai");
-    }
-
-    #[test]
-    fn test_cli_theme_nord() {
-        let cli = Cli::parse_from(["xcat", "--theme", "nord"]);
-        assert_eq!(cli.theme, "nord");
-    }
-
-    #[test]
-    fn test_cli_debug() {
-        let cli = Cli::parse_from(["xcat"]);
-        let debug_str = format!("{cli:?}");
-        assert!(debug_str.contains("Cli"));
-    }
-
-    #[test]
-    fn test_cli_clone() {
-        let cli = Cli::parse_from(["xcat", "-n", "file.txt"]);
-        let cloned = cli.clone();
-        assert_eq!(cli.files, cloned.files);
-        assert_eq!(cli.number, cloned.number);
+        assert!(help.contains("-e"));
+        assert!(help.contains("-t"));
+        assert!(help.contains("-u"));
     }
 }

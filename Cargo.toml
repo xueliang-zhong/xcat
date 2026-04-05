@@ -30,4 +30,4 @@ strip = true
 
 [features]
 default = []
-syntax-highlight = ["syntect"]
+syntax-highlight = []

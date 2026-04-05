@@ -13,3 +13,4 @@
 - `-E`/`-A` end markers must only print on newline-terminated lines; EOF without a trailing newline should stay marker-free to match GNU `cat`.
 - Direct ANSI writes beat assembling full highlighted lines in `String`s; keep plain spans batched and emit styled prefixes/suffixes only around the transformed tokens.
 - Commands that do not need user config, such as `--list-themes`, should bypass config loading so malformed `~/.xcat/config.toml` files do not block purely informational flows.
+- Let `clippy` collapse boilerplate `Default` impls on config enums and zero-value structs; it keeps serde defaults aligned and trims maintenance noise without changing behavior.
