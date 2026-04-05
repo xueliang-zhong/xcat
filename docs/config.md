@@ -48,7 +48,7 @@ buffer_size = 65536
 - `color.mode`: `auto`, `always`, or `never`
 - `color.theme`: palette name used for line numbers and markers
 - `color.syntax`: optional syntax profile used when the filename is not informative; common aliases like `bash`, `dockerfile`, `makefile`, `markdown`, `json`, and `terraform` are accepted
-- `color.syntax_highlighting`: enables the internal language-aware highlighter
+- `color.syntax_highlighting`: enables the internal language-aware highlighter for automatic detection
 - `performance.use_mmap`: enables file mmap fast paths
 - `performance.buffer_size`: buffer size used for streaming reads
 
@@ -60,3 +60,4 @@ buffer_size = 65536
 - `--no-color` always wins over any configured color mode
 - `color.syntax` is most useful for stdin or files whose names do not expose the language
 - if the hint is unknown, xcat falls back to filename heuristics instead of suppressing color
+- an explicit `--syntax NAME` still forces highlighting for that invocation even if the config disables automatic syntax detection

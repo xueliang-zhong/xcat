@@ -430,6 +430,33 @@ syntax = "terraform"
 }
 
 #[test]
+fn explicit_syntax_hint_overrides_disabled_highlighting_config() {
+    let home = TempDir::new().unwrap();
+    let config_dir = home.path().join(".xcat");
+    fs::create_dir_all(&config_dir).unwrap();
+    fs::write(
+        config_dir.join("config.toml"),
+        r#"
+[color]
+mode = "always"
+syntax_highlighting = false
+"#,
+    )
+    .unwrap();
+
+    let mut cmd = Command::cargo_bin("xcat").unwrap();
+    cmd.env("HOME", home.path())
+        .arg("--syntax")
+        .arg("json")
+        .write_stdin(r#"{"answer": 42, "ok": true}"#)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\u{1b}["))
+        .stdout(predicate::str::contains("answer"))
+        .stdout(predicate::str::contains("42"));
+}
+
+#[test]
 fn colorized_sql_file_uses_sql_keywords() {
     let dir = TempDir::new().unwrap();
     let file_path = dir.path().join("query.sql");

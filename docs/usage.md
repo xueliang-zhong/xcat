@@ -35,4 +35,5 @@ xcat -b -E notes.txt
 - Empty arguments or `-` read from stdin
 - `--list-themes` bypasses config loading so it still works even if `~/.xcat/config.toml` is broken
 - `--syntax` can force a language profile for piped content that does not have a helpful filename
+- an explicit `--syntax` keeps highlighting enabled for that command even if the config disables automatic syntax detection
 - if a syntax hint is unknown, xcat falls back to filename heuristics instead of dropping color

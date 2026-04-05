@@ -54,7 +54,8 @@ impl DisplayOptions {
             show_nonprinting,
             color_mode,
             color_enabled,
-            syntax_highlighting: config.color.syntax_highlighting && color_enabled,
+            syntax_highlighting: color_enabled
+                && (config.color.syntax_highlighting || cli.syntax.is_some()),
             syntax: cli
                 .syntax
                 .clone()
@@ -140,5 +141,15 @@ mod tests {
         let opts = DisplayOptions::from_cli_and_config(&cli, &config, true);
 
         assert_eq!(opts.syntax.as_deref(), Some("json"));
+    }
+
+    #[test]
+    fn explicit_syntax_hint_reenables_highlighting_even_when_config_disables_it() {
+        let cli = make_cli(&["--syntax", "json"]);
+        let mut config = Config::default();
+        config.color.syntax_highlighting = false;
+        let opts = DisplayOptions::from_cli_and_config(&cli, &config, true);
+
+        assert!(opts.syntax_highlighting);
     }
 }
