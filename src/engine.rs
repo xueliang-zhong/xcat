@@ -253,12 +253,48 @@ fn syntax_session_for_path(path: &Path, opts: &DisplayOptions) -> Option<SyntaxS
         return None;
     }
 
-    Some(SyntaxSession {
+    if let Some(session) = opts.syntax.as_deref().and_then(syntax_session_for_hint) {
+        return Some(session);
+    }
+
+    Some(syntax_session_from_path(path))
+}
+
+fn syntax_session_from_path(path: &Path) -> SyntaxSession {
+    SyntaxSession {
         comment_markers: comment_markers_for_path(path),
         extra_keywords: extra_keywords_for_path(path),
         case_insensitive_keywords: case_insensitive_keywords_for_path(path),
         markup: is_markup_file(path),
-    })
+    }
+}
+
+fn syntax_session_for_hint(hint: &str) -> Option<SyntaxSession> {
+    let normalized = hint.trim().to_ascii_lowercase();
+    let fake_path = match normalized.as_str() {
+        "cmake" => "CMakeLists.txt",
+        "gradle" => "build.gradle",
+        "groovy" => "build.gradle",
+        "gradle-kts" | "kotlin" | "kts" => "build.gradle.kts",
+        "json" => "file.json",
+        "jsonc" => "file.jsonc",
+        "lua" => "file.lua",
+        "markdown" | "md" => "README.md",
+        "terraform" | "tf" | "hcl" => "main.tf",
+        "tfvars" => "main.tfvars",
+        "zig" => "build.zig",
+        "yaml" | "yml" => "file.yaml",
+        "toml" => "file.toml",
+        "html" => "file.html",
+        "xml" => "file.xml",
+        "rust" | "rs" => "file.rs",
+        "python" | "py" => "file.py",
+        "javascript" | "js" => "file.js",
+        "typescript" | "ts" => "file.ts",
+        _ => return None,
+    };
+
+    Some(syntax_session_from_path(Path::new(fake_path)))
 }
 
 fn highlight_line<W: Write>(
@@ -539,8 +575,14 @@ fn comment_markers_for_path(path: &Path) -> &'static [&'static str] {
         match name.to_ascii_lowercase().as_str() {
             "dockerfile" | "containerfile" | "makefile" | "gnumakefile" | "procfile"
             | "rakefile" | "gemfile" | "brewfile" | "justfile" | "vagrantfile"
-            | ".dockerignore" | ".env" | ".envrc" | ".gitignore" | ".gitmodules" | ".npmignore"
-            | ".editorconfig" => return &["#"],
+            | "cmakelists.txt" | ".dockerignore" | ".env" | ".envrc" | ".gitignore"
+            | ".gitmodules" | ".npmignore" | ".editorconfig" => return &["#"],
+            "build.gradle"
+            | "settings.gradle"
+            | "build.gradle.kts"
+            | "settings.gradle.kts"
+            | "build.zig"
+            | "build.zig.zon" => return &["//"],
             _ => {}
         }
     }
@@ -557,6 +599,13 @@ fn comment_markers_for_path(path: &Path) -> &'static [&'static str] {
         "clj" | "cljs" | "cljc" | "cljfmt" | "clojure" | "el" | "elisp" | "hy" | "lisp" | "rkt"
         | "scm" | "ss" | "scheme" => &[";"],
         "sql" | "psql" => &["--", "#"],
+        "jsonc" => &["//", "/*"],
+        "json" => &[],
+        "tf" | "tfvars" | "hcl" => &["#"],
+        "lua" => &["--"],
+        "zig" => &["//"],
+        "cmake" => &["#"],
+        "gradle" => &["//"],
         "html" | "htm" | "xml" | "xhtml" | "svg" => &["<!--"],
         "rs" | "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "java" | "js" | "jsx" | "ts"
         | "tsx" | "go" | "kt" | "kts" | "swift" | "cs" | "php" | "scala" | "dart" => &["//", "/*"],
@@ -569,6 +618,11 @@ fn extra_keywords_for_path(path: &Path) -> &'static [&'static str] {
         match name.to_ascii_lowercase().as_str() {
             "dockerfile" | "containerfile" => return DOCKERFILE_KEYWORDS,
             "makefile" | "gnumakefile" => return MAKEFILE_KEYWORDS,
+            "cmakelists.txt" => return CMAKE_KEYWORDS,
+            "build.gradle" | "settings.gradle" | "build.gradle.kts" | "settings.gradle.kts" => {
+                return GRADLE_KEYWORDS
+            }
+            "build.zig" | "build.zig.zon" => return ZIG_KEYWORDS,
             _ => {}
         }
     }
@@ -581,6 +635,14 @@ fn extra_keywords_for_path(path: &Path) -> &'static [&'static str] {
         .as_str()
     {
         "sql" | "psql" => SQL_KEYWORDS,
+        "json" | "jsonc" => JSON_KEYWORDS,
+        "yaml" | "yml" => YAML_KEYWORDS,
+        "toml" => TOML_KEYWORDS,
+        "tf" | "tfvars" | "hcl" | "terraform" => TERRAFORM_KEYWORDS,
+        "lua" => LUA_KEYWORDS,
+        "zig" => ZIG_KEYWORDS,
+        "cmake" => CMAKE_KEYWORDS,
+        "gradle" | "kts" => GRADLE_KEYWORDS,
         _ => &[],
     }
 }
@@ -670,6 +732,110 @@ const SQL_KEYWORDS: &[&str] = &[
     "unique", "union", "update", "values", "when", "where",
 ];
 
+const JSON_KEYWORDS: &[&str] = &["false", "null", "true"];
+
+const YAML_KEYWORDS: &[&str] = &["false", "no", "null", "off", "on", "true", "yes"];
+
+const TOML_KEYWORDS: &[&str] = &["false", "inf", "nan", "true"];
+
+const TERRAFORM_KEYWORDS: &[&str] = &[
+    "data",
+    "depends_on",
+    "dynamic",
+    "for_each",
+    "lifecycle",
+    "locals",
+    "module",
+    "output",
+    "provider",
+    "provisioner",
+    "resource",
+    "terraform",
+    "variable",
+];
+
+const LUA_KEYWORDS: &[&str] = &[
+    "and", "break", "do", "else", "elseif", "end", "false", "for", "function", "if", "in", "local",
+    "nil", "not", "or", "repeat", "return", "then", "true", "until", "while",
+];
+
+const CMAKE_KEYWORDS: &[&str] = &[
+    "add_custom_command",
+    "add_custom_target",
+    "add_definitions",
+    "add_dependencies",
+    "add_executable",
+    "add_library",
+    "cmake_minimum_required",
+    "function",
+    "endfunction",
+    "endif",
+    "endforeach",
+    "foreach",
+    "if",
+    "include",
+    "install",
+    "message",
+    "option",
+    "project",
+    "return",
+    "set",
+    "target_include_directories",
+    "target_link_libraries",
+    "while",
+];
+
+const GRADLE_KEYWORDS: &[&str] = &[
+    "api",
+    "compileOnly",
+    "dependencies",
+    "implementation",
+    "plugins",
+    "repositories",
+    "runtimeOnly",
+    "sourceCompatibility",
+    "targetCompatibility",
+    "tasks",
+    "testImplementation",
+    "version",
+    "group",
+    "kotlin",
+];
+
+const ZIG_KEYWORDS: &[&str] = &[
+    "align",
+    "allowzero",
+    "and",
+    "anyerror",
+    "as",
+    "break",
+    "catch",
+    "comptime",
+    "const",
+    "continue",
+    "defer",
+    "else",
+    "enum",
+    "errdefer",
+    "false",
+    "fn",
+    "for",
+    "if",
+    "inline",
+    "null",
+    "or",
+    "pub",
+    "return",
+    "struct",
+    "switch",
+    "test",
+    "true",
+    "try",
+    "union",
+    "var",
+    "while",
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -689,6 +855,7 @@ mod tests {
             color_mode: ColorMode::Never,
             color_enabled: false,
             syntax_highlighting: false,
+            syntax: None,
             theme_name: String::from("default"),
             use_mmap: true,
             buffer_size: 64 * 1024,

@@ -20,6 +20,8 @@ show_nonprinting = false
 mode = "auto"
 # Palette name.
 theme = "default"
+# Optional syntax profile for stdin or ambiguous filenames.
+syntax = ""
 # Enable lightweight language-aware highlighting.
 syntax_highlighting = true
 

@@ -11,6 +11,11 @@ xcat --color always src/main.rs | less -R
 ```
 
 `less -R` keeps color escape codes while still letting `less` handle navigation, searching, and wrapping.
+When the content comes from stdin, a forced syntax hint can restore language-aware colors:
+
+```bash
+jq -c . package-lock.json | xcat --color always --syntax json | less -R
+```
 
 ## `fzf`
 
@@ -21,6 +26,7 @@ xcat --color always Cargo.toml | fzf --ansi
 ```
 
 That keeps syntax and marker colors visible while you filter and jump through results.
+If you are filtering a pipe without a descriptive filename, `--syntax` can keep the preview readable.
 
 ## `vim`
 

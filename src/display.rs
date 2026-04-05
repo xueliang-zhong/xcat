@@ -12,6 +12,7 @@ pub struct DisplayOptions {
     pub color_mode: ColorMode,
     pub color_enabled: bool,
     pub syntax_highlighting: bool,
+    pub syntax: Option<String>,
     pub theme_name: String,
     pub use_mmap: bool,
     pub buffer_size: usize,
@@ -54,6 +55,14 @@ impl DisplayOptions {
             color_mode,
             color_enabled,
             syntax_highlighting: config.color.syntax_highlighting && color_enabled,
+            syntax: cli
+                .syntax
+                .clone()
+                .or_else(|| config.color.syntax.clone())
+                .and_then(|syntax| {
+                    let syntax = syntax.trim();
+                    (!syntax.is_empty()).then(|| syntax.to_string())
+                }),
             theme_name: cli
                 .theme
                 .clone()
@@ -121,5 +130,15 @@ mod tests {
         assert_eq!(opts.color_mode, ColorMode::Never);
         assert!(!opts.color_enabled);
         assert!(!opts.syntax_highlighting);
+    }
+
+    #[test]
+    fn cli_syntax_hint_overrides_config() {
+        let cli = make_cli(&["--syntax", "json"]);
+        let mut config = Config::default();
+        config.color.syntax = Some(String::from("rust"));
+        let opts = DisplayOptions::from_cli_and_config(&cli, &config, true);
+
+        assert_eq!(opts.syntax.as_deref(), Some("json"));
     }
 }

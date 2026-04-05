@@ -29,6 +29,7 @@ show_nonprinting = false
 [color]
 mode = "auto"
 theme = "default"
+syntax = "rust"
 syntax_highlighting = true
 
 [performance]
@@ -46,6 +47,7 @@ buffer_size = 65536
 - `display.show_nonprinting`: default for `-v`
 - `color.mode`: `auto`, `always`, or `never`
 - `color.theme`: palette name used for line numbers and markers
+- `color.syntax`: optional syntax profile used when the filename is not informative
 - `color.syntax_highlighting`: enables the internal language-aware highlighter
 - `performance.use_mmap`: enables file mmap fast paths
 - `performance.buffer_size`: buffer size used for streaming reads
@@ -56,3 +58,4 @@ buffer_size = 65536
 - `always` is useful for `less -R`, `fzf --ansi`, and similar pipelines
 - `never` forces plain output
 - `--no-color` always wins over any configured color mode
+- `color.syntax` is most useful for stdin or files whose names do not expose the language

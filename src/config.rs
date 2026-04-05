@@ -37,6 +37,8 @@ pub struct ColorConfig {
     pub mode: ColorMode,
     #[serde(default = "default_theme")]
     pub theme: String,
+    #[serde(default)]
+    pub syntax: Option<String>,
     #[serde(default = "default_true")]
     pub syntax_highlighting: bool,
 }
@@ -54,6 +56,7 @@ impl Default for ColorConfig {
         Self {
             mode: ColorMode::Auto,
             theme: default_theme(),
+            syntax: None,
             syntax_highlighting: true,
         }
     }

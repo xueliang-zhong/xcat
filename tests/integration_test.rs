@@ -279,6 +279,21 @@ fn colorized_rust_file_uses_the_lightweight_highlighter() {
 }
 
 #[test]
+fn syntax_hint_can_colorize_stdin_without_a_filename_hint() {
+    let mut cmd = Command::cargo_bin("xcat").unwrap();
+    cmd.arg("--color")
+        .arg("always")
+        .arg("--syntax")
+        .arg("json")
+        .write_stdin(r#"{"answer": 42, "ok": true}"#)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\u{1b}["))
+        .stdout(predicate::str::contains("answer"))
+        .stdout(predicate::str::contains("42"));
+}
+
+#[test]
 fn colorized_dockerfile_uses_filename_specific_highlighter() {
     let dir = TempDir::new().unwrap();
     let file_path = dir.path().join("Dockerfile");
@@ -294,6 +309,75 @@ fn colorized_dockerfile_uses_filename_specific_highlighter() {
         .stdout(predicate::str::contains("FROM"))
         .stdout(predicate::str::contains("RUN"))
         .stdout(predicate::str::contains("# comment"));
+}
+
+#[test]
+fn colorized_cmakelists_file_uses_filename_specific_highlighter() {
+    let dir = TempDir::new().unwrap();
+    let file_path = dir.path().join("CMakeLists.txt");
+    fs::write(
+        &file_path,
+        "cmake_minimum_required(VERSION 3.20)\n# comment\nadd_executable(app main.c)\n",
+    )
+    .unwrap();
+
+    let mut cmd = Command::cargo_bin("xcat").unwrap();
+    cmd.arg("--color")
+        .arg("always")
+        .arg(&file_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\u{1b}["))
+        .stdout(predicate::str::contains("cmake_minimum_required"))
+        .stdout(predicate::str::contains("add_executable"))
+        .stdout(predicate::str::contains("# comment"));
+}
+
+#[test]
+fn colorized_gradle_file_uses_filename_specific_highlighter() {
+    let dir = TempDir::new().unwrap();
+    let file_path = dir.path().join("build.gradle");
+    fs::write(
+        &file_path,
+        "plugins { id 'java' }\ndependencies { implementation \"org.example:demo:1.0\" }\n",
+    )
+    .unwrap();
+
+    let mut cmd = Command::cargo_bin("xcat").unwrap();
+    cmd.arg("--color")
+        .arg("always")
+        .arg(&file_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\u{1b}["))
+        .stdout(predicate::str::contains("plugins"))
+        .stdout(predicate::str::contains("implementation"));
+}
+
+#[test]
+fn syntax_hint_from_config_applies_to_mismatched_filename() {
+    let home = TempDir::new().unwrap();
+    let config_dir = home.path().join(".xcat");
+    fs::create_dir_all(&config_dir).unwrap();
+    fs::write(
+        config_dir.join("config.toml"),
+        r#"
+[color]
+mode = "always"
+syntax = "terraform"
+"#,
+    )
+    .unwrap();
+
+    let file = write_temp_file("resource \"aws_s3_bucket\" \"demo\" {}\n");
+    let mut cmd = Command::cargo_bin("xcat").unwrap();
+    cmd.env("HOME", home.path())
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\u{1b}["))
+        .stdout(predicate::str::contains("resource"))
+        .stdout(predicate::str::contains("aws_s3_bucket"));
 }
 
 #[test]

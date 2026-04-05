@@ -70,6 +70,10 @@ pub struct Cli {
     #[arg(long)]
     pub theme: Option<String>,
 
+    /// Force syntax highlighting rules by language or file type.
+    #[arg(long)]
+    pub syntax: Option<String>,
+
     /// Show the configured theme names and exit.
     #[arg(long)]
     pub list_themes: bool,
