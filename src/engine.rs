@@ -924,6 +924,10 @@ fn is_markup_file(path: &Path) -> bool {
 
 fn bare_keys_for_path(path: &Path) -> bool {
     if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
+        if is_dependency_lockfile_name(name) {
+            return true;
+        }
+
         match name.to_ascii_lowercase().as_str() {
             "cargo.toml" | "pyproject.toml" | "pipfile" | "go.mod" | ".env" | ".envrc"
             | ".editorconfig" | ".gitconfig" | "package.json" | "package-lock.json"
@@ -958,6 +962,10 @@ fn bare_keys_for_path(path: &Path) -> bool {
 
 fn quoted_keys_for_path(path: &Path) -> bool {
     if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
+        if is_dependency_lockfile_name(name) {
+            return true;
+        }
+
         match name.to_ascii_lowercase().as_str() {
             "package.json" | "package-lock.json" | "composer.json" | "deno.json" | "deno.jsonc" => {
                 return true
@@ -978,6 +986,10 @@ fn quoted_keys_for_path(path: &Path) -> bool {
 
 fn section_headers_for_path(path: &Path) -> bool {
     if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
+        if is_dependency_lockfile_name(name) {
+            return true;
+        }
+
         match name.to_ascii_lowercase().as_str() {
             "cargo.toml" | "pyproject.toml" | "pipfile" | "go.mod" | ".env" | ".envrc"
             | ".editorconfig" | ".gitconfig" => return true,
@@ -992,6 +1004,13 @@ fn section_headers_for_path(path: &Path) -> bool {
             .to_ascii_lowercase()
             .as_str(),
         "toml" | "ini" | "cfg" | "conf"
+    )
+}
+
+fn is_dependency_lockfile_name(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "cargo.lock" | "composer.lock" | "pdm.lock" | "pipfile.lock" | "poetry.lock" | "uv.lock"
     )
 }
 
@@ -1566,6 +1585,56 @@ mod tests {
         let rendered = String::from_utf8(out).unwrap();
         assert!(rendered.contains("\u{1b}["));
         assert!(rendered.contains(&colorizer.colorize_keyword("[package]")));
+        assert!(rendered.contains(&colorizer.colorize_keyword("name")));
+        assert!(rendered.contains(&colorizer.colorize_string("\"xcat\"")));
+    }
+
+    #[test]
+    fn dependency_lockfiles_share_the_manifest_highlighting_profile() {
+        for name in ["Cargo.lock", "composer.lock", "poetry.lock", "uv.lock"] {
+            let syntax = syntax_session_from_path(Path::new(name));
+            assert!(syntax.bare_keys, "{name} should color bare keys");
+            assert!(syntax.quoted_keys, "{name} should color quoted keys");
+            assert!(
+                syntax.section_headers,
+                "{name} should color section headers"
+            );
+        }
+    }
+
+    #[test]
+    fn dependency_lockfiles_render_with_ansi_and_structure_highlighting() {
+        let test_opts = {
+            let mut opts = opts();
+            opts.syntax_highlighting = true;
+            opts
+        };
+        let mut syntax = syntax_session_for_path(Path::new("Cargo.lock"), &test_opts).unwrap();
+        let colorizer = Colorizer::new(true, "default");
+        let mut out = Vec::new();
+
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "[[package]]",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "name = \"xcat\"",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+
+        let rendered = String::from_utf8(out).unwrap();
+        assert!(rendered.contains("\u{1b}["));
+        assert!(rendered.contains(&colorizer.colorize_keyword("[[package]")));
         assert!(rendered.contains(&colorizer.colorize_keyword("name")));
         assert!(rendered.contains(&colorizer.colorize_string("\"xcat\"")));
     }

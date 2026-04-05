@@ -28,6 +28,7 @@ xcat -b -E notes.txt
 - `-c`, `--count-lines`: print a summary count after concatenation
 - unreadable inputs are reported on stderr and later files still get processed, matching GNU `cat`
 - common config manifests like `Cargo.toml`, `pyproject.toml`, `go.mod`, `package.json`, `.env`, and `.editorconfig` colorize by default when color is enabled
+- dependency lockfiles like `Cargo.lock`, `composer.lock`, `poetry.lock`, and `uv.lock` colorize by default too
 
 ## Precedence
 

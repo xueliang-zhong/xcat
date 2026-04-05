@@ -23,6 +23,7 @@ cargo run -- file.txt
 - Lightweight highlighting for common shell, Rust, SQL, Dockerfile, Makefile, markup, and Lisp-family files
 - Lightweight highlighting for shell rc files like `.bashrc` and `.zshrc`, plus Nix files such as `flake.nix`
 - Manifest-aware highlighting for common config files like `Cargo.toml`, `pyproject.toml`, `go.mod`, `package.json`, `.env`, and `.editorconfig`
+- Dependency lockfile highlighting for common terminal workflows such as `Cargo.lock`, `composer.lock`, `poetry.lock`, and `uv.lock`
 - Per-file error reporting that keeps later inputs flowing, like GNU `cat`
 
 ## Docs

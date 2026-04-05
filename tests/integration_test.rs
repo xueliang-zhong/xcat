@@ -349,6 +349,34 @@ fn colorized_rust_file_uses_the_lightweight_highlighter() {
 }
 
 #[test]
+fn colorized_dependency_lockfile_uses_the_manifest_highlighter() {
+    let dir = TempDir::new().unwrap();
+    let file_path = dir.path().join("Cargo.lock");
+    fs::write(
+        &file_path,
+        "[[package]]\nname = \"xcat\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+
+    let output = run_command(
+        xcat_binary().as_path(),
+        &[
+            OsStr::new("--color"),
+            OsStr::new("always"),
+            file_path.as_os_str(),
+        ],
+        None,
+    );
+
+    assert!(output.status.success());
+    assert!(output.stdout.windows(2).any(|window| window == b"\x1b["));
+    let rendered = String::from_utf8_lossy(&output.stdout);
+    assert!(rendered.contains("name"));
+    assert!(rendered.contains("\"xcat\""));
+    assert!(rendered.contains("version"));
+}
+
+#[test]
 fn syntax_hint_can_colorize_stdin_without_a_filename_hint() {
     let mut cmd = Command::cargo_bin("xcat").unwrap();
     cmd.arg("--color")
