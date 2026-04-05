@@ -28,3 +28,5 @@
 - Common manifest/config files such as `Cargo.toml`, `pyproject.toml`, `go.mod`, `package.json`, `.env`, and `.editorconfig` benefit from key-aware and section-aware heuristics, not just longer keyword lists.
 - Dependency lockfiles such as `Cargo.lock`, `composer.lock`, `poetry.lock`, and `uv.lock` belong in the same manifest-family highlighting path as TOML/JSON config files, because their structure is still mostly keys, sections, and string values.
 - Integration tests that need to prove ANSI output should assert on raw bytes or semantic substrings, not full colored spans, because escape boundaries can split a logical token differently than the visible text.
+- Regular files can reuse the byte-oriented render path through `mmap` when `performance.use_mmap` is enabled, which improves throughput without splitting the renderer into a separate code path.
+- Pruning unused runtime dependencies from `Cargo.toml` is a low-risk hardening win in this repo because the offline build stays smaller and easier to audit.

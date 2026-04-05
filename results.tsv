@@ -38,3 +38,12 @@ timestamp_utc	generation	status	commit	note
 2026-04-05T14:15:53Z	19	committed	0780c98095f976be0b4555c15050fbbf65196891	HEAD advanced
 2026-04-05T14:16:57Z	11	committed	2167400a152e50ecc7743c795b427eb8620fe13e	HEAD advanced
 2026-04-05T14:20:23Z	20	committed	8acb1c9d4d02eb4b606a2153813b8de93d1228b3	expanded default shell rc and Nix highlighting; docs, tests, and repo memory updated
+2026-04-05T14:21:54Z	12	committed	df83fcf5a2ef3b9ca8d2e2de04fdc0d4a84e12ac	HEAD advanced
+2026-04-05T16:10:48Z	21	passed	-	manifest-aware key/section highlighting for config files; docs, tests, and memory updated
+2026-04-05T16:10:48Z	21	committed	0332f3cbc592b276d85609d1e58b63ebef58f79b	HEAD advanced
+2026-04-05T16:12:44Z	1	committed	0332f3cbc592b276d85609d1e58b63ebef58f79b	HEAD advanced
+2026-04-05T16:17:39Z	22	passed	-	dependency lockfile highlighting plus docs, tests, and repo memory updates
+2026-04-05T16:17:39Z	22	committed	3c7423a401dbe2ca78ff93eb6e63a67e27e75016	Add dependency lockfile highlighting
+2026-04-05T16:18:33Z	2	committed	3c7423a401dbe2ca78ff93eb6e63a67e27e75016	HEAD advanced
+2026-04-05T16:25:58Z	23	passed	779ca05475b2a3838aaf376ae0a7d3a0e1ad5b17	mmap-backed render path for regular files; pruned unused runtime deps; docs, tests, and memory updated
+2026-04-05T16:25:58Z	23	committed	779ca05475b2a3838aaf376ae0a7d3a0e1ad5b17	HEAD advanced
