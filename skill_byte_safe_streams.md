@@ -6,6 +6,7 @@ Use this pattern for `cat`-like tools and any byte-preserving terminal copier:
 - Treat newline as a byte suffix, not a text delimiter
 - Keep rendering logic separate from copying logic
 - Preserve a direct copy path for plain files and stdin
+- Summary-only flags like `-c` can often piggyback on the direct copy path by counting bytes as they stream
 - Only decode UTF-8 when a feature explicitly needs text analysis
 - Add tests for invalid UTF-8, CRLF, control bytes, and EOF without newline
 - If stdin gets a special fast path, gate it with the same rendering conditions as files so color/highlighting behavior stays aligned

@@ -6,6 +6,7 @@
 
 - Plain files without transformations use buffered copy or `mmap`
 - Stdin without transformations uses direct streaming copy
+- `-c` keeps the plain-copy path when no rendering flags are active and counts lines from the emitted bytes
 - `mmap` is configurable in `performance.use_mmap`
 
 ## Streaming Path

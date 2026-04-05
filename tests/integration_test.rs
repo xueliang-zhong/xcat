@@ -197,6 +197,17 @@ fn test_cat_count_lines() {
 }
 
 #[test]
+fn test_cat_count_lines_preserves_plain_output() {
+    let file = write_temp_bytes(b"line1\nline2");
+    let arg = file.path().as_os_str();
+    let output = run_command(xcat_binary().as_path(), &[OsStr::new("-c"), arg], None);
+
+    assert!(output.status.success());
+    assert!(output.stdout.starts_with(b"line1\nline2"));
+    assert!(output.stdout.ends_with(b"Total lines: 2\n"));
+}
+
+#[test]
 fn plain_binary_files_match_system_cat() {
     let file = write_temp_bytes(b"plain-\xff-bytes\nand-more\x80");
     let arg = file.path().as_os_str();

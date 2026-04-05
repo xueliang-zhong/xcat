@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{self, BufRead, BufReader, IsTerminal, Write};
+use std::io::{self, BufRead, BufReader, IsTerminal, Read, Write};
 use std::path::Path;
 
 use crate::cli::Cli;
@@ -86,8 +86,12 @@ fn process_source<W: Write>(
         if can_fast_copy_plain(opts, syntax.is_some()) {
             let stdin = io::stdin();
             let mut handle = stdin.lock();
-            io::copy(&mut handle, out).map_err(|e| XcatError::Io(e, String::from("stdin")))?;
-            return Ok(0);
+            return if opts.count_lines {
+                copy_and_count_lines(&mut handle, "stdin", out, opts.buffer_size)
+            } else {
+                io::copy(&mut handle, out).map_err(|e| XcatError::Io(e, String::from("stdin")))?;
+                Ok(0)
+            };
         }
 
         let stdin = io::stdin();
@@ -108,7 +112,11 @@ fn process_source<W: Write>(
 
     let mut syntax = syntax_session_for_path(path, opts);
     if can_fast_copy_plain(opts, syntax.is_some()) {
-        return copy_fast(file, source, opts.use_mmap, out);
+        return if opts.count_lines {
+            copy_fast_counting(file, source, opts.use_mmap, opts.buffer_size, out)
+        } else {
+            copy_fast(file, source, opts.use_mmap, out)
+        };
     }
 
     let mut reader = BufReader::with_capacity(opts.buffer_size.max(1), file);
@@ -238,7 +246,77 @@ fn copy_fast<W: Write>(
 
 #[inline]
 fn can_fast_copy_plain(opts: &DisplayOptions, syntax_session_present: bool) -> bool {
-    opts.should_render_plain_bytes() && !opts.count_lines && !syntax_session_present
+    opts.should_render_plain_bytes() && !syntax_session_present
+}
+
+fn copy_fast_counting<W: Write>(
+    mut file: File,
+    source: &str,
+    use_mmap: bool,
+    buffer_size: usize,
+    out: &mut W,
+) -> XcatResult<usize> {
+    if use_mmap {
+        match unsafe { memmap2::MmapOptions::new().map(&file) } {
+            Ok(mmap) => {
+                let line_count = count_lines_in_bytes(&mmap);
+                out.write_all(&mmap)
+                    .map_err(|e| XcatError::Io(e, source.to_string()))?;
+                return Ok(line_count);
+            }
+            Err(err) => {
+                let _ = err;
+            }
+        }
+    }
+
+    copy_and_count_lines(&mut file, source, out, buffer_size)
+}
+
+fn copy_and_count_lines<R: Read, W: Write>(
+    reader: &mut R,
+    source: &str,
+    out: &mut W,
+    buffer_size: usize,
+) -> XcatResult<usize> {
+    let mut buffer = vec![0u8; buffer_size.max(1)];
+    let mut total_lines = 0usize;
+    let mut saw_any = false;
+    let mut last_byte = None;
+
+    loop {
+        let read = reader
+            .read(&mut buffer)
+            .map_err(|e| XcatError::Io(e, source.to_string()))?;
+        if read == 0 {
+            break;
+        }
+
+        saw_any = true;
+        total_lines += count_newlines(&buffer[..read]);
+        last_byte = Some(buffer[read - 1]);
+        out.write_all(&buffer[..read])
+            .map_err(|e| XcatError::Io(e, source.to_string()))?;
+    }
+
+    if saw_any && last_byte != Some(b'\n') {
+        total_lines += 1;
+    }
+
+    Ok(total_lines)
+}
+
+fn count_lines_in_bytes(bytes: &[u8]) -> usize {
+    let newline_count = count_newlines(bytes);
+    if bytes.is_empty() || bytes.last() == Some(&b'\n') {
+        newline_count
+    } else {
+        newline_count + 1
+    }
+}
+
+fn count_newlines(bytes: &[u8]) -> usize {
+    bytes.iter().filter(|&&byte| byte == b'\n').count()
 }
 
 struct SyntaxSession {
@@ -922,6 +1000,7 @@ mod tests {
     use super::*;
     use crate::cli::ColorMode;
     use std::fs;
+    use std::io::Read;
     use std::path::Path;
     use tempfile::NamedTempFile;
 
@@ -963,6 +1042,64 @@ mod tests {
 
         assert_eq!(result, 0);
         assert_eq!(out, b"hello\nworld");
+    }
+
+    #[test]
+    fn fast_path_counting_preserves_bytes_and_counts_unterminated_lines() {
+        let file = NamedTempFile::new().unwrap();
+        fs::write(file.path(), b"hello\nworld").unwrap();
+        let mut out = Vec::new();
+        let colorizer = Colorizer::new(false, "default");
+        let mut state = StreamState::default();
+        let mut test_opts = opts();
+        test_opts.count_lines = true;
+
+        let result = process_source(
+            file.path().to_str().unwrap(),
+            &test_opts,
+            &colorizer,
+            &mut state,
+            &mut out,
+        )
+        .unwrap();
+
+        assert_eq!(result, 2);
+        assert_eq!(out, b"hello\nworld");
+    }
+
+    #[test]
+    fn copy_and_count_lines_handles_chunked_reads() {
+        struct ChunkedReader {
+            bytes: Vec<u8>,
+            pos: usize,
+            chunk_size: usize,
+        }
+
+        impl Read for ChunkedReader {
+            fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+                if self.pos >= self.bytes.len() {
+                    return Ok(0);
+                }
+
+                let available = self.bytes.len() - self.pos;
+                let take = available.min(self.chunk_size).min(buf.len());
+                buf[..take].copy_from_slice(&self.bytes[self.pos..self.pos + take]);
+                self.pos += take;
+                Ok(take)
+            }
+        }
+
+        let mut reader = ChunkedReader {
+            bytes: b"alpha\nbeta\ngamma".to_vec(),
+            pos: 0,
+            chunk_size: 3,
+        };
+        let mut out = Vec::new();
+
+        let lines = copy_and_count_lines(&mut reader, "stdin", &mut out, 4).unwrap();
+
+        assert_eq!(lines, 3);
+        assert_eq!(out, b"alpha\nbeta\ngamma");
     }
 
     #[test]

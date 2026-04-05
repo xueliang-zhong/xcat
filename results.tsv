@@ -28,3 +28,7 @@ timestamp_utc	generation	status	commit	note
 2026-04-05T13:58:15Z	15	passed	-	expanded explicit syntax aliases for Dockerfile and Makefile stdin workflows; docs, tests, and repo memory updated
 2026-04-05T13:59:13Z	7	committed	9041c674e895ab8d06c93f32f186291a06a2da89	HEAD advanced
 2026-04-05T14:01:43Z	16	passed	-	explicit syntax hints now override the automatic highlighting gate; docs, tests, and repo memory updated
+2026-04-05T14:02:44Z	8	committed	1aae29ccca3868186501724902b582aab7fe50b7	HEAD advanced
+2026-04-05T14:06:53Z	17	committed	f322b64e000d2531cff3a6477abe7b3b71eb1293	tab-aware syntax highlighting; docs, tests, memory, and failed-path notes updated
+2026-04-05T14:07:51Z	9	committed	f322b64e000d2531cff3a6477abe7b3b71eb1293	HEAD advanced
+2026-04-05T14:12:28Z	18	passed	-	-c now keeps the plain-copy fast path while counting lines from copied bytes; docs, tests, and memory updated
