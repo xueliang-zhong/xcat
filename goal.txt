@@ -2,6 +2,7 @@ Implement xcat command in Rust language.
 Maximise feature parity withthe linux cat command.
 Maximise colour support by by default for maximum language coverages.
 Maximise runtime performance.
+Maximise SDL security hardening for the implementation.
 Maximise Rust language feature usage.
 Maximise user documentation clarity: with brief introduction in README.md, detailed instructions in docs/ folder.
 Maximise the ability to work with vim, less, fzf.
