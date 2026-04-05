@@ -13,6 +13,7 @@ Use this pattern for `cat`-like tools and any byte-preserving terminal copier:
 - End markers like `-E`/`-A` belong only on lines that ended with `\n`; do not synthesize them for a final unterminated line.
 - When ANSI styling is needed, keep plain byte spans batched and write prefixes/suffixes directly instead of materializing whole rendered lines.
 - For lightweight syntax highlighting, extensionless filename heuristics like `Dockerfile` and `Makefile` can expand coverage cheaply without changing the streaming/copy core.
+- Shell rc files and Nix files are also good candidates for cheap filename-based keyword maps when you want more default terminal color coverage without a heavier syntax engine.
 - For pipe-heavy workflows, an explicit syntax hint is a good escape hatch when stdin or a mismatched filename hides the intended language; if the hint is unknown, fall back to filename heuristics instead of dropping color entirely.
 - Map common editor/filetype aliases such as `dockerfile`, `makefile`, and `markdown` onto the same filename heuristics so stdin users keep the broadest practical color coverage.
 - In multi-source copiers, keep unreadable inputs nonfatal and continue with later sources; flush buffered stdout before printing the error so already-emitted bytes stay ordered ahead of stderr.

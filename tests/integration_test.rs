@@ -431,6 +431,48 @@ fn colorized_dockerfile_uses_filename_specific_highlighter() {
 }
 
 #[test]
+fn colorized_shell_rc_file_uses_filename_specific_highlighter() {
+    let dir = TempDir::new().unwrap();
+    let file_path = dir.path().join(".bashrc");
+    fs::write(
+        &file_path,
+        "export PATH=/usr/local/bin:$PATH\nalias ll='ls -l'\n",
+    )
+    .unwrap();
+
+    let mut cmd = Command::cargo_bin("xcat").unwrap();
+    cmd.arg("--color")
+        .arg("always")
+        .arg(&file_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\u{1b}["))
+        .stdout(predicate::str::contains("export"))
+        .stdout(predicate::str::contains("alias"));
+}
+
+#[test]
+fn colorized_nix_file_uses_filename_specific_highlighter() {
+    let dir = TempDir::new().unwrap();
+    let file_path = dir.path().join("flake.nix");
+    fs::write(
+        &file_path,
+        "let pkgs = import <nixpkgs> {}; in pkgs.hello\n",
+    )
+    .unwrap();
+
+    let mut cmd = Command::cargo_bin("xcat").unwrap();
+    cmd.arg("--color")
+        .arg("always")
+        .arg(&file_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\u{1b}["))
+        .stdout(predicate::str::contains("let"))
+        .stdout(predicate::str::contains("import"));
+}
+
+#[test]
 fn colorized_cmakelists_file_uses_filename_specific_highlighter() {
     let dir = TempDir::new().unwrap();
     let file_path = dir.path().join("CMakeLists.txt");

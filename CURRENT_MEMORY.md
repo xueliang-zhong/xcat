@@ -18,8 +18,10 @@
 - Syntax highlighting can stay eligible for CRLF text when `-E` is off; only block the trailing `\r` case that would render raw markers incorrectly.
 - Lightweight comment-marker maps can cheaply expand coverage for Lisp-family files without adding a full syntax engine.
 - Filename-based heuristics are a cheap way to broaden default highlighting for extensionless build files like `Dockerfile` and `Makefile`, plus SQL and markup-heavy docs, without disturbing the byte-safe fast path.
+- Shell rc files and Nix expressions can also use cheap filename-based keyword maps, which expands default terminal color coverage without pulling in a full syntax engine.
 - An explicit `--syntax` / `color.syntax` hint is a useful escape hatch for stdin and mismatched filenames, but it should fall back to filename heuristics when the hint is unknown so default coverage is not lost.
 - Common editor/filetype aliases such as `dockerfile` and `makefile` should map onto the same lightweight syntax heuristics as their filename counterparts so stdin workflows keep color coverage.
+- Common editor/filetype aliases like `bash`, `sh`, and `nix` should map onto the same lightweight syntax heuristics as their filename counterparts so stdin workflows keep color coverage.
 - Explicit `--syntax` should override the config highlight toggle for that invocation; treat `color.syntax_highlighting` as the automatic-detection gate, not a hard ceiling on user-requested syntax color.
 - Tab rendering with `-T` can share the syntax-highlighting path because tabs are ASCII-safe; keep `-v` excluded from that path because nonprinting byte rendering breaks UTF-8 token boundaries.
 - GNU-cat-style error handling matters for multi-source runs: report unreadable inputs on stderr, flush any buffered stdout first, and keep processing later files unless stdout itself fails.

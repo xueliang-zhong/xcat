@@ -47,7 +47,7 @@ buffer_size = 65536
 - `display.show_nonprinting`: default for `-v`
 - `color.mode`: `auto`, `always`, or `never`
 - `color.theme`: palette name used for line numbers and markers
-- `color.syntax`: optional syntax profile used when the filename is not informative; common aliases like `bash`, `dockerfile`, `makefile`, `markdown`, `json`, and `terraform` are accepted
+- `color.syntax`: optional syntax profile used when the filename is not informative; common aliases like `bash`, `dockerfile`, `makefile`, `markdown`, `json`, `terraform`, and `nix` are accepted
 - `color.syntax_highlighting`: enables the internal language-aware highlighter for automatic detection
 - `performance.use_mmap`: enables file mmap fast paths
 - `performance.buffer_size`: buffer size used for streaming reads

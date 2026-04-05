@@ -40,6 +40,8 @@ If the input does not have a useful filename, `--syntax NAME` or `color.syntax` 
 Common editor and filetype aliases like `bash`, `dockerfile`, `makefile`, `markdown`, and `yaml` are accepted, and unknown hints fall back to filename heuristics so you do not lose color coverage by mistake.
 Common Lisp-family files such as `*.el`, `*.clj`, `*.rkt`, and `*.scm` also pick up simple line-comment highlighting, and CRLF text stays eligible for highlighting when end markers are off.
 Extensionless build files like `Dockerfile`, `Containerfile`, `Makefile`, `GNUmakefile`, `Procfile`, `Gemfile`, and `Justfile` also get comment-aware highlighting.
+Shell rc files like `.bashrc`, `.zshrc`, and `.profile` use lightweight shell keyword highlighting, which makes them readable in terminal workflows without a full syntax engine.
+Nix files like `flake.nix`, `shell.nix`, and `default.nix` get similar keyword coverage for `let`/`in` style expressions.
 SQL files get a broader keyword set, and markup-oriented extensions such as `*.md`, `*.markdown`, `*.org`, `*.rst`, and `*.adoc` stay eligible for embedded tag coloring.
 Common infrastructure and build files such as `CMakeLists.txt`, `build.gradle`, `build.gradle.kts`, `build.zig`, `main.tf`, `main.tfvars`, `*.jsonc`, `*.lua`, `*.zig`, and `*.json` also receive focused comment and keyword rules.
 Tab rendering with `-T` stays compatible with syntax highlighting, so code remains colorized while indentation markers are shown.

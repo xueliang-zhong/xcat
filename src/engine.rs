@@ -407,6 +407,7 @@ fn syntax_session_for_hint(hint: &str) -> Option<SyntaxSession> {
         "org" | "rst" | "adoc" | "asciidoc" => "file.md",
         "perl" | "pl" => "file.pl",
         "php" => "file.php",
+        "nix" => "flake.nix",
         "psql" | "sql" => "file.sql",
         "python" | "py" => "file.py",
         "ruby" | "rb" => "file.rb",
@@ -810,6 +811,9 @@ fn extra_keywords_for_path(path: &Path) -> &'static [&'static str] {
         match name.to_ascii_lowercase().as_str() {
             "dockerfile" | "containerfile" => return DOCKERFILE_KEYWORDS,
             "makefile" | "gnumakefile" => return MAKEFILE_KEYWORDS,
+            ".bashrc" | ".bash_profile" | ".bash_login" | ".profile" | ".zshrc" | ".zprofile"
+            | ".zlogin" | ".envrc" => return SHELL_KEYWORDS,
+            "flake.nix" | "shell.nix" | "default.nix" | "home.nix" => return NIX_KEYWORDS,
             "cmakelists.txt" => return CMAKE_KEYWORDS,
             "build.gradle" | "settings.gradle" | "build.gradle.kts" | "settings.gradle.kts" => {
                 return GRADLE_KEYWORDS
@@ -827,10 +831,12 @@ fn extra_keywords_for_path(path: &Path) -> &'static [&'static str] {
         .as_str()
     {
         "sql" | "psql" => SQL_KEYWORDS,
+        "sh" | "bash" | "zsh" | "fish" => SHELL_KEYWORDS,
         "json" | "jsonc" => JSON_KEYWORDS,
         "yaml" | "yml" => YAML_KEYWORDS,
         "toml" => TOML_KEYWORDS,
         "tf" | "tfvars" | "hcl" | "terraform" => TERRAFORM_KEYWORDS,
+        "nix" => NIX_KEYWORDS,
         "lua" => LUA_KEYWORDS,
         "zig" => ZIG_KEYWORDS,
         "cmake" => CMAKE_KEYWORDS,
@@ -1026,6 +1032,37 @@ const ZIG_KEYWORDS: &[&str] = &[
     "union",
     "var",
     "while",
+];
+
+const SHELL_KEYWORDS: &[&str] = &[
+    "alias", "break", "case", "command", "do", "done", "elif", "else", "esac", "eval", "exec",
+    "export", "fi", "for", "function", "if", "in", "local", "readonly", "return", "select", "set",
+    "source", "then", "time", "trap", "unset", "until", "while",
+];
+
+const NIX_KEYWORDS: &[&str] = &[
+    "assert",
+    "builtins",
+    "else",
+    "false",
+    "fetchFromGitHub",
+    "fetchTarball",
+    "fetchurl",
+    "if",
+    "import",
+    "in",
+    "inherit",
+    "let",
+    "null",
+    "or",
+    "rec",
+    "then",
+    "true",
+    "with",
+    "callPackage",
+    "derivation",
+    "mkDerivation",
+    "stdenv",
 ];
 
 #[cfg(test)]
@@ -1321,6 +1358,59 @@ mod tests {
     }
 
     #[test]
+    fn shell_rc_files_get_keyword_highlighting() {
+        let test_opts = {
+            let mut opts = opts();
+            opts.syntax_highlighting = true;
+            opts
+        };
+        let mut syntax = syntax_session_for_path(Path::new(".bashrc"), &test_opts).unwrap();
+        let colorizer = Colorizer::new(true, "default");
+        let mut out = Vec::new();
+
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "export PATH=/usr/local/bin:$PATH",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+
+        let rendered = String::from_utf8(out).unwrap();
+        assert!(rendered.contains("\u{1b}["));
+        assert!(rendered.contains("export"));
+    }
+
+    #[test]
+    fn nix_files_get_keyword_highlighting() {
+        let test_opts = {
+            let mut opts = opts();
+            opts.syntax_highlighting = true;
+            opts
+        };
+        let mut syntax = syntax_session_for_path(Path::new("flake.nix"), &test_opts).unwrap();
+        let colorizer = Colorizer::new(true, "default");
+        let mut out = Vec::new();
+
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "let pkgs = import <nixpkgs> {}; in pkgs.hello",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+
+        let rendered = String::from_utf8(out).unwrap();
+        assert!(rendered.contains("\u{1b}["));
+        assert!(rendered.contains("let"));
+        assert!(rendered.contains("import"));
+    }
+
+    #[test]
     fn dockerfile_files_get_comment_and_keyword_highlighting() {
         let test_opts = {
             let mut opts = opts();
@@ -1471,5 +1561,46 @@ mod tests {
         assert!(docker_rendered.contains("FROM"));
         assert!(make_rendered.contains("\u{1b}["));
         assert!(make_rendered.contains("ifdef"));
+    }
+
+    #[test]
+    fn syntax_hints_accept_shell_and_nix_aliases() {
+        let test_opts = {
+            let mut opts = opts();
+            opts.syntax_highlighting = true;
+            opts
+        };
+        let colorizer = Colorizer::new(true, "default");
+
+        let mut shell_out = Vec::new();
+        let mut shell = syntax_session_for_hint("bash").unwrap();
+        highlight_line(
+            &mut shell_out,
+            &mut shell,
+            "export PATH=/usr/local/bin:$PATH",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+
+        let mut nix_out = Vec::new();
+        let mut nix = syntax_session_for_hint("nix").unwrap();
+        highlight_line(
+            &mut nix_out,
+            &mut nix,
+            "let pkgs = import <nixpkgs> {}; in pkgs.hello",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+
+        let shell_rendered = String::from_utf8(shell_out).unwrap();
+        let nix_rendered = String::from_utf8(nix_out).unwrap();
+        assert!(shell_rendered.contains("\u{1b}["));
+        assert!(shell_rendered.contains("export"));
+        assert!(nix_rendered.contains("\u{1b}["));
+        assert!(nix_rendered.contains("let"));
     }
 }
