@@ -1,0 +1,38 @@
+# xcat configuration file
+# Location: ~/.xcat/config.toml
+
+[display]
+# Number all output lines (equivalent to -n)
+number = false
+# Number non-empty output lines only (equivalent to -b)
+number_nonblank = false
+# Display $ at end of each line (equivalent to -E)
+show_ends = false
+# Squeeze repeated blank lines (equivalent to -s)
+squeeze_blank = false
+# Display TAB characters as ^I (equivalent to -T)
+show_tabs = false
+# Display non-printing characters (equivalent to -v)
+show_nonprinting = false
+# Buffer size for I/O operations (default: 65536 = 64KB)
+buffer_size = 65536
+
+[color]
+# Enable color output (default: true)
+enabled = true
+# Color theme: default, monokai, solarized, github, nord
+theme = "default"
+# Color the line numbers
+line_number_color = true
+# Color the end-of-line markers
+end_marker_color = true
+# Color the tab markers
+tab_marker_color = true
+
+[performance]
+# Use memory-mapped I/O for large files (default: true)
+use_mmap = true
+# Buffer size for I/O (default: 65536)
+buffer_size = 65536
+# Enable parallel processing for multiple files (experimental)
+parallel = false

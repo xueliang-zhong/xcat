@@ -1,0 +1,33 @@
+[package]
+name = "xcat"
+version = "0.1.0"
+edition = "2021"
+description = "Enhanced cat command with color support and configuration"
+authors = ["xcat"]
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+dirs = "5"
+memmap2 = "0.9"
+serde_json = "1"
+regex = "1"
+nu-ansi-term = "0.50"
+syntect = { version = "5", features = ["default-fancy"], optional = true }
+walkdir = "2"
+
+[dev-dependencies]
+tempfile = "3"
+assert_cmd = "2"
+predicates = "3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[features]
+default = []
+syntax-highlight = ["syntect"]
