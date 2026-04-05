@@ -23,12 +23,12 @@ xcat -b -E notes.txt
 - `-u`: ignored, kept for GNU `cat` compatibility
 - `--color auto|always|never`: control ANSI color emission
 - `--theme NAME`: select a palette
-- `--syntax NAME`: force a syntax profile for files or stdin; common aliases like `bash`, `dockerfile`, `makefile`, `markdown`, `json`, `terraform`, and `nix` work too
+- `--syntax NAME`: force a syntax profile for files or stdin; common aliases like `bash`, `dockerfile`, `makefile`, `markdown`, `json`, `terraform`, `nix`, and `yarn` work too
 - `--list-themes`: print available palette names and exit
 - `-c`, `--count-lines`: print a summary count after concatenation
 - unreadable inputs are reported on stderr and later files still get processed, matching GNU `cat`
 - common config manifests like `Cargo.toml`, `pyproject.toml`, `go.mod`, `package.json`, `.env`, and `.editorconfig` colorize by default when color is enabled
-- dependency lockfiles like `Cargo.lock`, `composer.lock`, `poetry.lock`, and `uv.lock` colorize by default too
+- dependency lockfiles like `Cargo.lock`, `composer.lock`, `poetry.lock`, `uv.lock`, and `yarn.lock` colorize by default too
 
 ## Precedence
 
@@ -42,5 +42,6 @@ xcat -b -E notes.txt
 - if a syntax hint is unknown, xcat falls back to filename heuristics instead of dropping color
 - shell rc files such as `.bashrc` and `.zshrc` colorize with shell keyword heuristics by default
 - Nix files such as `flake.nix` and `shell.nix` also pick up lightweight keyword coloring automatically
+- Yarn lockfiles use a dedicated lockfile heuristic so leading keys and package selector headers stay readable
 - `-T` can stay colorized with syntax highlighting, so you can inspect indentation without losing language-aware colors
 - `-v` keeps the byte-preserving nonprinting path, which means syntax highlighting stays disabled there on purpose

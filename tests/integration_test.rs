@@ -377,6 +377,28 @@ fn colorized_dependency_lockfile_uses_the_manifest_highlighter() {
 }
 
 #[test]
+fn colorized_yarn_lock_uses_the_lightweight_highlighter() {
+    let dir = TempDir::new().unwrap();
+    let file_path = dir.path().join("yarn.lock");
+    fs::write(&file_path, "version \"1.3.0\"\n").unwrap();
+
+    let output = run_command(
+        xcat_binary().as_path(),
+        &[
+            OsStr::new("--color"),
+            OsStr::new("always"),
+            file_path.as_os_str(),
+        ],
+        None,
+    );
+
+    assert!(output.status.success());
+    let rendered = String::from_utf8_lossy(&output.stdout);
+    assert!(rendered.contains("\u{1b}[1;34mversion\u{1b}[0m"));
+    assert!(rendered.contains("1.3.0"));
+}
+
+#[test]
 fn syntax_hint_can_colorize_stdin_without_a_filename_hint() {
     let mut cmd = Command::cargo_bin("xcat").unwrap();
     cmd.arg("--color")
@@ -419,6 +441,20 @@ fn syntax_hint_makefile_alias_highlights_stdin() {
         .stdout(predicate::str::contains("\u{1b}["))
         .stdout(predicate::str::contains("ifdef"))
         .stdout(predicate::str::contains("endif"));
+}
+
+#[test]
+fn syntax_hint_yarn_alias_highlights_stdin() {
+    let mut cmd = Command::cargo_bin("xcat").unwrap();
+    cmd.arg("--color")
+        .arg("always")
+        .arg("--syntax")
+        .arg("yarn")
+        .write_stdin("version \"1.3.0\"\n")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\u{1b}[1;34mversion\u{1b}[0m"))
+        .stdout(predicate::str::contains("1.3.0"));
 }
 
 #[test]

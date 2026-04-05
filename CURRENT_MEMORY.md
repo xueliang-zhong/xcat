@@ -30,3 +30,4 @@
 - Integration tests that need to prove ANSI output should assert on raw bytes or semantic substrings, not full colored spans, because escape boundaries can split a logical token differently than the visible text.
 - Regular files can reuse the byte-oriented render path through `mmap` when `performance.use_mmap` is enabled, which improves throughput without splitting the renderer into a separate code path.
 - Pruning unused runtime dependencies from `Cargo.toml` is a low-risk hardening win in this repo because the offline build stays smaller and easier to audit.
+- `yarn.lock` benefits from a dedicated line-start heuristic: top-level selector lines and leading value keys like `version` read better than trying to generalize all manifest files with one parser.

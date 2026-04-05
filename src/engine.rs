@@ -430,6 +430,7 @@ struct SyntaxSession {
     bare_keys: bool,
     quoted_keys: bool,
     section_headers: bool,
+    yarn_lock: bool,
 }
 
 fn syntax_session_for_path(path: &Path, opts: &DisplayOptions) -> Option<SyntaxSession> {
@@ -453,6 +454,7 @@ fn syntax_session_from_path(path: &Path) -> SyntaxSession {
         bare_keys: bare_keys_for_path(path),
         quoted_keys: quoted_keys_for_path(path),
         section_headers: section_headers_for_path(path),
+        yarn_lock: yarn_lock_for_path(path),
     }
 }
 
@@ -493,6 +495,7 @@ fn syntax_session_for_hint(hint: &str) -> Option<SyntaxSession> {
         "toml" => "file.toml",
         "ts" | "tsx" | "typescript" => "file.ts",
         "yaml" | "yml" => "file.yaml",
+        "yarn" | "yarnlock" => "yarn.lock",
         "zig" => "build.zig",
         "cs" | "csharp" => "file.cs",
         _ => return None,
@@ -644,6 +647,23 @@ fn highlight_text<W: Write>(
         }
 
         let ch = text[i..].chars().next().unwrap_or_default();
+        if syntax.yarn_lock && !line_has_non_whitespace && !ch.is_whitespace() {
+            if let Some(end) = text[i..].find(':') {
+                let end = i + end + 1;
+                write_rendered_text(out, &text[plain_start..i], opts, colorizer, None)?;
+                write_rendered_text(
+                    out,
+                    &text[i..end],
+                    opts,
+                    colorizer,
+                    Some(SyntaxTokenKind::Keyword),
+                )?;
+                plain_start = end;
+                i = end;
+                line_has_non_whitespace = true;
+                continue;
+            }
+        }
         if syntax.section_headers && !line_has_non_whitespace && ch == '[' {
             if let Some(end) = text[i..].find(']') {
                 let end = i + end + 1;
@@ -717,6 +737,9 @@ fn highlight_text<W: Write>(
                 && !line_has_non_whitespace
                 && matches!(next_non_ws_char(text, end), Some('=') | Some(':'));
             if is_bare_key
+                || (syntax.yarn_lock
+                    && !line_has_non_whitespace
+                    && !matches!(next_non_ws_char(text, end), Some('(')))
                 || keyword_matches(token, KEYWORDS, false)
                 || keyword_matches(
                     token,
@@ -1077,10 +1100,23 @@ fn section_headers_for_path(path: &Path) -> bool {
     )
 }
 
+fn yarn_lock_for_path(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.eq_ignore_ascii_case("yarn.lock"))
+        .unwrap_or(false)
+}
+
 fn is_dependency_lockfile_name(name: &str) -> bool {
     matches!(
         name.to_ascii_lowercase().as_str(),
-        "cargo.lock" | "composer.lock" | "pdm.lock" | "pipfile.lock" | "poetry.lock" | "uv.lock"
+        "cargo.lock"
+            | "composer.lock"
+            | "pdm.lock"
+            | "pipfile.lock"
+            | "poetry.lock"
+            | "uv.lock"
+            | "yarn.lock"
     )
 }
 
@@ -1435,6 +1471,30 @@ mod tests {
         assert!(rendered.contains("fn"));
         assert!(rendered.contains("$"));
         assert!(rendered.ends_with('\n'));
+    }
+
+    #[test]
+    fn yarn_lock_files_highlight_top_level_keys() {
+        let mut test_opts = opts();
+        test_opts.syntax_highlighting = true;
+        let mut syntax = syntax_session_for_path(Path::new("yarn.lock"), &test_opts).unwrap();
+        let colorizer = Colorizer::new(true, "default");
+        let mut out = Vec::new();
+
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "version \"1.3.0\"",
+            &test_opts,
+            &colorizer,
+            false,
+        )
+        .unwrap();
+
+        let rendered = String::from_utf8(out).unwrap();
+        assert!(rendered.contains("\u{1b}["));
+        assert!(rendered.contains("\u{1b}[1;34mversion\u{1b}[0m"));
+        assert!(rendered.contains("1.3.0"));
     }
 
     #[test]
