@@ -16,3 +16,4 @@
 - Let `clippy` collapse boilerplate `Default` impls on config enums and zero-value structs; it keeps serde defaults aligned and trims maintenance noise without changing behavior.
 - Syntax highlighting can stay eligible for CRLF text when `-E` is off; only block the trailing `\r` case that would render raw markers incorrectly.
 - Lightweight comment-marker maps can cheaply expand coverage for Lisp-family files without adding a full syntax engine.
+- Filename-based heuristics are a cheap way to broaden default highlighting for extensionless build files like `Dockerfile` and `Makefile`, plus SQL and markup-heavy docs, without disturbing the byte-safe fast path.

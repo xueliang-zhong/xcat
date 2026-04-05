@@ -11,3 +11,4 @@ Use this pattern for `cat`-like tools and any byte-preserving terminal copier:
 - If stdin gets a special fast path, gate it with the same rendering conditions as files so color/highlighting behavior stays aligned
 - End markers like `-E`/`-A` belong only on lines that ended with `\n`; do not synthesize them for a final unterminated line.
 - When ANSI styling is needed, keep plain byte spans batched and write prefixes/suffixes directly instead of materializing whole rendered lines.
+- For lightweight syntax highlighting, extensionless filename heuristics like `Dockerfile` and `Makefile` can expand coverage cheaply without changing the streaming/copy core.

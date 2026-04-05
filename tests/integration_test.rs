@@ -279,6 +279,42 @@ fn colorized_rust_file_uses_the_lightweight_highlighter() {
 }
 
 #[test]
+fn colorized_dockerfile_uses_filename_specific_highlighter() {
+    let dir = TempDir::new().unwrap();
+    let file_path = dir.path().join("Dockerfile");
+    fs::write(&file_path, "FROM rust:1.78\n# comment\nRUN cargo build\n").unwrap();
+
+    let mut cmd = Command::cargo_bin("xcat").unwrap();
+    cmd.arg("--color")
+        .arg("always")
+        .arg(&file_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\u{1b}["))
+        .stdout(predicate::str::contains("FROM"))
+        .stdout(predicate::str::contains("RUN"))
+        .stdout(predicate::str::contains("# comment"));
+}
+
+#[test]
+fn colorized_sql_file_uses_sql_keywords() {
+    let dir = TempDir::new().unwrap();
+    let file_path = dir.path().join("query.sql");
+    fs::write(&file_path, "SELECT id, name FROM users WHERE active = 1;\n").unwrap();
+
+    let mut cmd = Command::cargo_bin("xcat").unwrap();
+    cmd.arg("--color")
+        .arg("always")
+        .arg(&file_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\u{1b}["))
+        .stdout(predicate::str::contains("SELECT"))
+        .stdout(predicate::str::contains("FROM"))
+        .stdout(predicate::str::contains("WHERE"));
+}
+
+#[test]
 fn config_file_at_home_dir_sets_defaults() {
     let home = TempDir::new().unwrap();
     let config_dir = home.path().join(".xcat");

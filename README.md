@@ -1,6 +1,7 @@
 # xcat
 
 `xcat` is a byte-preserving Rust `cat` replacement with Linux-style display flags, configurable color modes, fast plain-file streaming, and lightweight language-aware highlighting for terminal use.
+It keeps the plain-byte fast path intact while still coloring common code, SQL, build, and markup files by default in interactive terminals.
 
 ## Quick Start
 
@@ -18,7 +19,7 @@ cargo run -- file.txt
 - `--list-themes` to print the built-in palette names
 - Config file support at `~/.xcat/config.toml`
 - Fast streaming path for plain files and stdin
-- Lightweight highlighting for common shell, Rust, SQL, markup, and Lisp-family files
+- Lightweight highlighting for common shell, Rust, SQL, Dockerfile, Makefile, markup, and Lisp-family files
 
 ## Docs
 

@@ -3,6 +3,7 @@
 `xcat` reads `~/.xcat/config.toml` by default.
 The `--list-themes` command skips config loading so you can inspect palette names
 even if the file is missing or malformed.
+Use [`config.example.toml`](../config.example.toml) as a ready-made starter with the shipped defaults.
 
 ## Precedence
 

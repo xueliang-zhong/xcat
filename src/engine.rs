@@ -243,6 +243,8 @@ fn can_fast_copy_plain(opts: &DisplayOptions, syntax_session_present: bool) -> b
 
 struct SyntaxSession {
     comment_markers: &'static [&'static str],
+    extra_keywords: &'static [&'static str],
+    case_insensitive_keywords: bool,
     markup: bool,
 }
 
@@ -253,6 +255,8 @@ fn syntax_session_for_path(path: &Path, opts: &DisplayOptions) -> Option<SyntaxS
 
     Some(SyntaxSession {
         comment_markers: comment_markers_for_path(path),
+        extra_keywords: extra_keywords_for_path(path),
+        case_insensitive_keywords: case_insensitive_keywords_for_path(path),
         markup: is_markup_file(path),
     })
 }
@@ -293,55 +297,84 @@ fn highlight_text<W: Write>(
         "const",
         "continue",
         "def",
+        "delete",
         "default",
         "do",
+        "drop",
+        "distinct",
         "else",
         "enum",
         "except",
+        "exists",
         "export",
         "extends",
         "false",
         "finally",
-        "fn",
-        "for",
         "from",
         "function",
+        "group",
+        "fn",
+        "for",
+        "foreign",
         "if",
+        "inner",
         "impl",
+        "index",
         "import",
+        "insert",
         "in",
         "interface",
+        "into",
+        "join",
         "let",
+        "left",
+        "limit",
         "match",
         "mod",
         "mut",
-        "namespace",
+        "not",
         "null",
+        "namespace",
+        "on",
         "object",
         "of",
+        "offset",
+        "order",
+        "or",
+        "outer",
         "package",
         "pass",
+        "primary",
         "pub",
         "raise",
         "ref",
+        "right",
+        "run",
         "return",
         "self",
+        "select",
         "static",
+        "table",
+        "then",
         "struct",
         "super",
         "switch",
+        "type",
+        "union",
+        "unique",
         "template",
         "this",
+        "update",
         "throw",
         "trait",
         "true",
         "try",
-        "type",
-        "union",
+        "values",
+        "when",
         "use",
+        "where",
         "var",
         "while",
-        "where",
         "with",
         "yield",
     ];
@@ -395,7 +428,13 @@ fn highlight_text<W: Write>(
         if is_ident_start(ch) {
             let end = scan_ident(text, i);
             let token = &text[i..end];
-            if KEYWORDS.contains(&token) {
+            if keyword_matches(token, KEYWORDS, false)
+                || keyword_matches(
+                    token,
+                    syntax.extra_keywords,
+                    syntax.case_insensitive_keywords,
+                )
+            {
                 write_plain_text(out, &text[plain_start..i])?;
                 colorizer.write_keyword(out, token)?;
                 plain_start = end;
@@ -496,6 +535,16 @@ fn is_ident_continue(ch: char) -> bool {
 }
 
 fn comment_markers_for_path(path: &Path) -> &'static [&'static str] {
+    if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
+        match name.to_ascii_lowercase().as_str() {
+            "dockerfile" | "containerfile" | "makefile" | "gnumakefile" | "procfile"
+            | "rakefile" | "gemfile" | "brewfile" | "justfile" | "vagrantfile"
+            | ".dockerignore" | ".env" | ".envrc" | ".gitignore" | ".gitmodules" | ".npmignore"
+            | ".editorconfig" => return &["#"],
+            _ => {}
+        }
+    }
+
     match path
         .extension()
         .and_then(|ext| ext.to_str())
@@ -515,6 +564,45 @@ fn comment_markers_for_path(path: &Path) -> &'static [&'static str] {
     }
 }
 
+fn extra_keywords_for_path(path: &Path) -> &'static [&'static str] {
+    if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
+        match name.to_ascii_lowercase().as_str() {
+            "dockerfile" | "containerfile" => return DOCKERFILE_KEYWORDS,
+            "makefile" | "gnumakefile" => return MAKEFILE_KEYWORDS,
+            _ => {}
+        }
+    }
+
+    match path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "sql" | "psql" => SQL_KEYWORDS,
+        _ => &[],
+    }
+}
+
+fn case_insensitive_keywords_for_path(path: &Path) -> bool {
+    if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
+        match name.to_ascii_lowercase().as_str() {
+            "dockerfile" | "containerfile" => return true,
+            _ => {}
+        }
+    }
+
+    matches!(
+        path.extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str(),
+        "sql" | "psql"
+    )
+}
+
 fn is_markup_file(path: &Path) -> bool {
     matches!(
         path.extension()
@@ -522,9 +610,65 @@ fn is_markup_file(path: &Path) -> bool {
             .unwrap_or_default()
             .to_ascii_lowercase()
             .as_str(),
-        "html" | "htm" | "xml" | "xhtml" | "svg"
+        "html"
+            | "htm"
+            | "xml"
+            | "xhtml"
+            | "svg"
+            | "md"
+            | "markdown"
+            | "mdx"
+            | "org"
+            | "rst"
+            | "adoc"
+            | "asciidoc"
     )
 }
+
+fn keyword_matches(token: &str, keywords: &[&str], case_insensitive: bool) -> bool {
+    if case_insensitive {
+        keywords
+            .iter()
+            .any(|keyword| keyword.eq_ignore_ascii_case(token))
+    } else {
+        keywords.contains(&token)
+    }
+}
+
+const DOCKERFILE_KEYWORDS: &[&str] = &[
+    "add",
+    "arg",
+    "as",
+    "cmd",
+    "copy",
+    "entrypoint",
+    "env",
+    "expose",
+    "from",
+    "healthcheck",
+    "label",
+    "maintainer",
+    "onbuild",
+    "run",
+    "shell",
+    "stopsignal",
+    "user",
+    "volume",
+    "workdir",
+];
+
+const MAKEFILE_KEYWORDS: &[&str] = &[
+    "define", "endef", "endif", "else", "export", "ifneq", "ifdef", "ifndef", "include",
+    "override", "unexport", "vpath",
+];
+
+const SQL_KEYWORDS: &[&str] = &[
+    "all", "alter", "and", "as", "asc", "between", "by", "case", "check", "column", "create",
+    "delete", "desc", "distinct", "drop", "else", "end", "exists", "foreign", "from", "group",
+    "having", "in", "index", "inner", "insert", "into", "join", "key", "left", "like", "limit",
+    "not", "null", "on", "or", "order", "outer", "primary", "right", "select", "table", "then",
+    "unique", "union", "update", "values", "when", "where",
+];
 
 #[cfg(test)]
 mod tests {
@@ -730,5 +874,117 @@ mod tests {
         let rendered = String::from_utf8(out).unwrap();
         assert!(rendered.contains("\u{1b}["));
         assert!(rendered.contains("; comment"));
+    }
+
+    #[test]
+    fn dockerfile_files_get_comment_and_keyword_highlighting() {
+        let test_opts = {
+            let mut opts = opts();
+            opts.syntax_highlighting = true;
+            opts
+        };
+        let mut syntax = syntax_session_for_path(Path::new("Dockerfile"), &test_opts).unwrap();
+        let colorizer = Colorizer::new(true, "default");
+        let mut out = Vec::new();
+
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "FROM rust:1.78",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "# comment",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "RUN cargo build",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+
+        let rendered = String::from_utf8(out).unwrap();
+        assert!(rendered.contains("\u{1b}["));
+        assert!(rendered.contains("FROM"));
+        assert!(rendered.contains("RUN"));
+        assert!(rendered.contains("# comment"));
+    }
+
+    #[test]
+    fn sql_files_get_keyword_highlighting() {
+        let test_opts = {
+            let mut opts = opts();
+            opts.syntax_highlighting = true;
+            opts
+        };
+        let mut syntax = syntax_session_for_path(Path::new("query.sql"), &test_opts).unwrap();
+        let colorizer = Colorizer::new(true, "default");
+        let mut out = Vec::new();
+
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "SELECT id, name FROM users WHERE active = 1;",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+
+        let rendered = String::from_utf8(out).unwrap();
+        assert!(rendered.contains("\u{1b}["));
+        assert!(rendered.contains("SELECT"));
+        assert!(rendered.contains("FROM"));
+        assert!(rendered.contains("WHERE"));
+    }
+
+    #[test]
+    fn makefiles_get_directive_and_comment_highlighting() {
+        let test_opts = {
+            let mut opts = opts();
+            opts.syntax_highlighting = true;
+            opts
+        };
+        let mut syntax = syntax_session_for_path(Path::new("Makefile"), &test_opts).unwrap();
+        let colorizer = Colorizer::new(true, "default");
+        let mut out = Vec::new();
+
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "# build comment",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "ifdef DEBUG",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+        highlight_line(&mut out, &mut syntax, "endif", &test_opts, &colorizer, true).unwrap();
+
+        let rendered = String::from_utf8(out).unwrap();
+        assert!(rendered.contains("\u{1b}["));
+        assert!(rendered.contains("# build comment"));
+        assert!(rendered.contains("ifdef"));
+        assert!(rendered.contains("endif"));
     }
 }
