@@ -148,6 +148,14 @@ fn process_source<W: Write>(
         };
     }
 
+    if opts.use_mmap {
+        // Regular files can reuse the same byte-oriented render logic as the
+        // streaming fallback, which keeps the hot path mmap-friendly.
+        if let Ok(mmap) = unsafe { memmap2::MmapOptions::new().map(&file) } {
+            return process_byte_slice(&mmap, source, opts, colorizer, state, out, syntax.as_mut());
+        }
+    }
+
     let mut reader = BufReader::with_capacity(opts.buffer_size.max(1), file);
     process_reader_with_syntax(
         &mut reader,
@@ -179,10 +187,18 @@ fn process_reader_with_syntax<R: BufRead, W: Write>(
     colorizer: &Colorizer,
     state: &mut StreamState,
     out: &mut W,
-    mut syntax: Option<&mut SyntaxSession>,
+    syntax: Option<&mut SyntaxSession>,
 ) -> XcatResult<usize> {
     let mut buffer = Vec::with_capacity(opts.buffer_size.max(1));
     let mut total_lines = 0usize;
+    let mut renderer = LineRenderer {
+        source,
+        opts,
+        colorizer,
+        state,
+        out,
+        syntax,
+    };
 
     loop {
         buffer.clear();
@@ -195,50 +211,104 @@ fn process_reader_with_syntax<R: BufRead, W: Write>(
 
         total_lines += 1;
         let (body, had_newline) = strip_trailing_newline(&buffer);
+        renderer.render(body, had_newline)?;
+    }
+
+    Ok(total_lines)
+}
+
+fn process_byte_slice<W: Write>(
+    bytes: &[u8],
+    source: &str,
+    opts: &DisplayOptions,
+    colorizer: &Colorizer,
+    state: &mut StreamState,
+    out: &mut W,
+    syntax: Option<&mut SyntaxSession>,
+) -> XcatResult<usize> {
+    let mut total_lines = 0usize;
+    let mut renderer = LineRenderer {
+        source,
+        opts,
+        colorizer,
+        state,
+        out,
+        syntax,
+    };
+
+    for segment in bytes.split_inclusive(|byte| *byte == b'\n') {
+        total_lines += 1;
+        let (body, had_newline) = strip_trailing_newline(segment);
+        renderer.render(body, had_newline)?;
+    }
+
+    Ok(total_lines)
+}
+
+struct LineRenderer<'a, W: Write> {
+    source: &'a str,
+    opts: &'a DisplayOptions,
+    colorizer: &'a Colorizer,
+    state: &'a mut StreamState,
+    out: &'a mut W,
+    syntax: Option<&'a mut SyntaxSession>,
+}
+
+impl<'a, W: Write> LineRenderer<'a, W> {
+    fn render(&mut self, body: &[u8], had_newline: bool) -> XcatResult<()> {
         let blank = is_blank_line(body);
 
-        if opts.squeeze_blank && blank {
-            state.blank_run += 1;
-            if state.blank_run > 1 {
-                continue;
+        if self.opts.squeeze_blank && blank {
+            self.state.blank_run += 1;
+            if self.state.blank_run > 1 {
+                return Ok(());
             }
         } else {
-            state.blank_run = 0;
+            self.state.blank_run = 0;
         }
 
-        if opts.number_nonblank {
+        if self.opts.number_nonblank {
             if !blank {
-                state.line_number += 1;
-                write_line_number(out, colorizer, state.line_number)
-                    .map_err(|e| XcatError::Io(e, source.to_string()))?;
+                self.state.line_number += 1;
+                write_line_number(self.out, self.colorizer, self.state.line_number)
+                    .map_err(|e| XcatError::Io(e, self.source.to_string()))?;
             }
-        } else if opts.number {
-            state.line_number += 1;
-            write_line_number(out, colorizer, state.line_number)
-                .map_err(|e| XcatError::Io(e, source.to_string()))?;
+        } else if self.opts.number {
+            self.state.line_number += 1;
+            write_line_number(self.out, self.colorizer, self.state.line_number)
+                .map_err(|e| XcatError::Io(e, self.source.to_string()))?;
         }
 
-        if let Some(syntax) = syntax.as_deref_mut() {
-            if should_use_syntax_highlighting(opts, body) {
+        if let Some(syntax) = self.syntax.as_mut() {
+            if should_use_syntax_highlighting(self.opts, body) {
                 if let Ok(text) = std::str::from_utf8(body) {
-                    highlight_line(out, syntax, text, opts, colorizer, had_newline)
-                        .map_err(|e| XcatError::Io(e, source.to_string()))?;
-                    continue;
+                    highlight_line(
+                        self.out,
+                        syntax,
+                        text,
+                        self.opts,
+                        self.colorizer,
+                        had_newline,
+                    )
+                    .map_err(|e| XcatError::Io(e, self.source.to_string()))?;
+                    return Ok(());
                 }
             }
         }
 
-        write_rendered_body(out, body, opts, colorizer, had_newline)?;
-        if opts.show_ends && had_newline {
-            write_end_marker(out, colorizer).map_err(|e| XcatError::Io(e, source.to_string()))?;
+        write_rendered_body(self.out, body, self.opts, self.colorizer, had_newline)?;
+        if self.opts.show_ends && had_newline {
+            write_end_marker(self.out, self.colorizer)
+                .map_err(|e| XcatError::Io(e, self.source.to_string()))?;
         }
         if had_newline {
-            out.write_all(b"\n")
-                .map_err(|e| XcatError::Io(e, source.to_string()))?;
+            self.out
+                .write_all(b"\n")
+                .map_err(|e| XcatError::Io(e, self.source.to_string()))?;
         }
-    }
 
-    Ok(total_lines)
+        Ok(())
+    }
 }
 
 fn should_use_syntax_highlighting(opts: &DisplayOptions, body: &[u8]) -> bool {
@@ -1444,6 +1514,39 @@ mod tests {
         assert!(rendered.contains("\u{1b}["));
         assert!(rendered.contains("let"));
         assert!(rendered.contains("42"));
+    }
+
+    #[test]
+    fn byte_slice_rendering_matches_the_streaming_path() {
+        let mut test_opts = opts();
+        test_opts.syntax_highlighting = true;
+        test_opts.number = true;
+        test_opts.show_tabs = true;
+        test_opts.show_ends = true;
+        let mut syntax = syntax_session_for_path(Path::new("main.rs"), &test_opts).unwrap();
+        let colorizer = Colorizer::new(true, "default");
+        let mut out = Vec::new();
+        let mut state = StreamState::default();
+
+        process_byte_slice(
+            b"fn\tmain() { return 1; }\nlet answer = 42",
+            "main.rs",
+            &test_opts,
+            &colorizer,
+            &mut state,
+            &mut out,
+            Some(&mut syntax),
+        )
+        .unwrap();
+
+        let rendered = String::from_utf8(out).unwrap();
+        assert!(rendered.contains("\u{1b}["));
+        assert!(rendered.contains("^I"));
+        assert!(rendered.contains("1\t"));
+        assert!(rendered.contains("2\t"));
+        assert!(rendered.contains("return"));
+        assert!(rendered.contains("answer"));
+        assert!(!rendered.ends_with('\n'));
     }
 
     #[test]

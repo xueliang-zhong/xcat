@@ -20,6 +20,7 @@ cargo run -- file.txt
 - `--list-themes` to print the built-in palette names
 - Config file support at `~/.xcat/config.toml`
 - Fast streaming path for plain files and stdin
+- `mmap`-backed rendering for regular files when display flags or highlighting are active
 - Lightweight highlighting for common shell, Rust, SQL, Dockerfile, Makefile, markup, and Lisp-family files
 - Lightweight highlighting for shell rc files like `.bashrc` and `.zshrc`, plus Nix files such as `flake.nix`
 - Manifest-aware highlighting for common config files like `Cargo.toml`, `pyproject.toml`, `go.mod`, `package.json`, `.env`, and `.editorconfig`

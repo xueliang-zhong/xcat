@@ -19,6 +19,10 @@ The streaming path is used when any of these are active:
 - tab/nonprinting rendering
 - color highlighting
 
+When `performance.use_mmap` is enabled, regular files can use `mmap` for both
+plain copying and rendered output. That keeps the render logic byte-oriented
+without forcing an extra buffered read loop for large files.
+
 When ANSI output is enabled, `xcat` writes styled prefixes/suffixes directly
 to stdout and keeps plain byte spans batched. That avoids building whole
 highlighted lines in temporary `String`s while preserving byte-for-byte output.
