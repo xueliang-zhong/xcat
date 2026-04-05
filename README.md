@@ -1,5 +1,7 @@
 # xcat
 
+The `xcat` project is a `cat` command rewrite from scratch using agents and PlanSelfPlay (psp).
+
 `xcat` is a byte-preserving Rust `cat` replacement with Linux-style display flags, configurable color modes, fast plain-file streaming, and lightweight language-aware highlighting for terminal use.
 It keeps the plain-byte fast path intact while still coloring common code, SQL, build, and markup files by default in interactive terminals.
 
