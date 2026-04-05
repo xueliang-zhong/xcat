@@ -12,4 +12,6 @@ timestamp_utc	generation	status	commit	note
 2026-04-05T13:18:59Z	1	no_commit	-	no new commit
 2026-04-05T13:21:26Z	7	passed	-	stdout buffered for render-path throughput; HOME-scoped config-path regression added; commit blocked by read-only .git
 2026-04-05T13:25:34Z	8	passed	-	fixed EOF no-newline end-marker parity; added cat-oracle regressions and memory updates
-2026-04-05T13:31:17Z	9	passed	-	direct-write ANSI renderer for syntax-highlighted lines; added file highlighting regression and performance docs
+2026-04-05T13:31:17Z	9	passed	83f84a6	direct-write ANSI renderer for syntax-highlighted lines; added file highlighting regression and performance docs
+2026-04-05T13:32:43Z	1	committed	83f84a633d0958d8c01c85f03e31ce65827231dd	HEAD advanced
+2026-04-05T13:35:41Z	10	passed	31bbc0994150a4854ac198ad6925bcdbcc80ea09	--list-themes now skips config loading; added malformed-config regression and docs
