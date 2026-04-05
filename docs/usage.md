@@ -37,3 +37,5 @@ xcat -b -E notes.txt
 - `--syntax` can force a language profile for piped content that does not have a helpful filename
 - an explicit `--syntax` keeps highlighting enabled for that command even if the config disables automatic syntax detection
 - if a syntax hint is unknown, xcat falls back to filename heuristics instead of dropping color
+- `-T` can stay colorized with syntax highlighting, so you can inspect indentation without losing language-aware colors
+- `-v` keeps the byte-preserving nonprinting path, which means syntax highlighting stays disabled there on purpose

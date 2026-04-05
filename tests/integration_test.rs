@@ -262,6 +262,21 @@ fn colorized_stdin_uses_the_lightweight_highlighter() {
 }
 
 #[test]
+fn colorized_tabs_keep_syntax_highlighting_visible() {
+    let file = write_temp_file("fn\tmain() { return 1; }\n");
+    let mut cmd = Command::cargo_bin("xcat").unwrap();
+    cmd.arg("--color")
+        .arg("always")
+        .arg("-T")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\u{1b}["))
+        .stdout(predicate::str::contains("^I"))
+        .stdout(predicate::str::contains("return"));
+}
+
+#[test]
 fn colorized_rust_file_uses_the_lightweight_highlighter() {
     let dir = TempDir::new().unwrap();
     let file_path = dir.path().join("sample.rs");

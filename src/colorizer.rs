@@ -2,6 +2,15 @@ use std::io::{self, Write};
 
 use nu_ansi_term::{Color, Style};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SyntaxTokenKind {
+    Keyword,
+    String,
+    Comment,
+    Number,
+    Function,
+}
+
 #[derive(Debug, Clone)]
 pub struct ThemePalette {
     pub line_number: Style,
@@ -175,6 +184,22 @@ impl Colorizer {
 
     pub fn write_function<W: Write>(&self, out: &mut W, text: &str) -> io::Result<()> {
         self.write_styled_text(out, self.palette.function, text)
+    }
+
+    pub fn write_syntax_token<W: Write>(
+        &self,
+        out: &mut W,
+        kind: SyntaxTokenKind,
+        text: &str,
+    ) -> io::Result<()> {
+        let style = match kind {
+            SyntaxTokenKind::Keyword => self.palette.keyword,
+            SyntaxTokenKind::String => self.palette.string,
+            SyntaxTokenKind::Comment => self.palette.comment,
+            SyntaxTokenKind::Number => self.palette.number,
+            SyntaxTokenKind::Function => self.palette.function,
+        };
+        self.write_styled_text(out, style, text)
     }
 
     fn write_styled_text<W: Write>(&self, out: &mut W, style: Style, text: &str) -> io::Result<()> {
@@ -352,5 +377,23 @@ mod tests {
         assert!(rendered.contains("    42\t"));
         assert!(rendered.contains("fn"));
         assert!(rendered.contains("# comment"));
+    }
+
+    #[test]
+    fn syntax_token_writer_uses_the_matching_palette_color() {
+        let colorizer = Colorizer::new(true, "gruvbox");
+        let mut out = Cursor::new(Vec::new());
+
+        colorizer
+            .write_syntax_token(&mut out, SyntaxTokenKind::Keyword, "let")
+            .unwrap();
+        colorizer
+            .write_syntax_token(&mut out, SyntaxTokenKind::Function, "main")
+            .unwrap();
+
+        let rendered = String::from_utf8(out.into_inner()).unwrap();
+        assert!(rendered.contains("\u{1b}["));
+        assert!(rendered.contains("let"));
+        assert!(rendered.contains("main"));
     }
 }

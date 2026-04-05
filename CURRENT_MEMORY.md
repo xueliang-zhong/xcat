@@ -20,3 +20,4 @@
 - An explicit `--syntax` / `color.syntax` hint is a useful escape hatch for stdin and mismatched filenames, but it should fall back to filename heuristics when the hint is unknown so default coverage is not lost.
 - Common editor/filetype aliases such as `dockerfile` and `makefile` should map onto the same lightweight syntax heuristics as their filename counterparts so stdin workflows keep color coverage.
 - Explicit `--syntax` should override the config highlight toggle for that invocation; treat `color.syntax_highlighting` as the automatic-detection gate, not a hard ceiling on user-requested syntax color.
+- Tab rendering with `-T` can share the syntax-highlighting path because tabs are ASCII-safe; keep `-v` excluded from that path because nonprinting byte rendering breaks UTF-8 token boundaries.

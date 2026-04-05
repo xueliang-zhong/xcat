@@ -3,7 +3,7 @@ use std::io::{self, BufRead, BufReader, IsTerminal, Write};
 use std::path::Path;
 
 use crate::cli::Cli;
-use crate::colorizer::Colorizer;
+use crate::colorizer::{Colorizer, SyntaxTokenKind};
 use crate::config::Config;
 use crate::display::DisplayOptions;
 use crate::error::{XcatError, XcatResult};
@@ -205,7 +205,7 @@ fn process_reader_with_syntax<R: BufRead, W: Write>(
 }
 
 fn should_use_syntax_highlighting(opts: &DisplayOptions, body: &[u8]) -> bool {
-    if !opts.syntax_highlighting || opts.show_tabs || opts.show_nonprinting {
+    if !opts.syntax_highlighting || opts.show_nonprinting {
         return false;
     }
 
@@ -321,7 +321,7 @@ fn highlight_line<W: Write>(
     colorizer: &Colorizer,
     had_newline: bool,
 ) -> io::Result<()> {
-    highlight_text(out, text, syntax, colorizer)?;
+    highlight_text(out, text, syntax, colorizer, opts)?;
     if opts.show_ends && had_newline {
         colorizer.write_end_marker(out)?;
     }
@@ -336,6 +336,7 @@ fn highlight_text<W: Write>(
     text: &str,
     syntax: &SyntaxSession,
     colorizer: &Colorizer,
+    opts: &DisplayOptions,
 ) -> io::Result<()> {
     const KEYWORDS: &[&str] = &[
         "as",
@@ -441,8 +442,14 @@ fn highlight_text<W: Write>(
             .iter()
             .any(|marker| is_line_comment(text, i, marker))
         {
-            write_plain_text(out, &text[plain_start..i])?;
-            colorizer.write_comment(out, &text[i..])?;
+            write_rendered_text(out, &text[plain_start..i], opts, colorizer, None)?;
+            write_rendered_text(
+                out,
+                &text[i..],
+                opts,
+                colorizer,
+                Some(SyntaxTokenKind::Comment),
+            )?;
             plain_start = bytes.len();
             break;
         }
@@ -451,8 +458,14 @@ fn highlight_text<W: Write>(
         if syntax.markup && ch == '<' {
             if let Some(end) = text[i..].find('>') {
                 let end = i + end + 1;
-                write_plain_text(out, &text[plain_start..i])?;
-                colorizer.write_keyword(out, &text[i..end])?;
+                write_rendered_text(out, &text[plain_start..i], opts, colorizer, None)?;
+                write_rendered_text(
+                    out,
+                    &text[i..end],
+                    opts,
+                    colorizer,
+                    Some(SyntaxTokenKind::Keyword),
+                )?;
                 plain_start = end;
                 i = end;
                 continue;
@@ -461,8 +474,14 @@ fn highlight_text<W: Write>(
 
         if ch == '"' || ch == '\'' || ch == '`' {
             let end = scan_quoted(text, i, ch);
-            write_plain_text(out, &text[plain_start..i])?;
-            colorizer.write_string(out, &text[i..end])?;
+            write_rendered_text(out, &text[plain_start..i], opts, colorizer, None)?;
+            write_rendered_text(
+                out,
+                &text[i..end],
+                opts,
+                colorizer,
+                Some(SyntaxTokenKind::String),
+            )?;
             plain_start = end;
             i = end;
             continue;
@@ -470,8 +489,14 @@ fn highlight_text<W: Write>(
 
         if ch.is_ascii_digit() {
             let end = scan_number(text, i);
-            write_plain_text(out, &text[plain_start..i])?;
-            colorizer.write_number(out, &text[i..end])?;
+            write_rendered_text(out, &text[plain_start..i], opts, colorizer, None)?;
+            write_rendered_text(
+                out,
+                &text[i..end],
+                opts,
+                colorizer,
+                Some(SyntaxTokenKind::Number),
+            )?;
             plain_start = end;
             i = end;
             continue;
@@ -487,12 +512,12 @@ fn highlight_text<W: Write>(
                     syntax.case_insensitive_keywords,
                 )
             {
-                write_plain_text(out, &text[plain_start..i])?;
-                colorizer.write_keyword(out, token)?;
+                write_rendered_text(out, &text[plain_start..i], opts, colorizer, None)?;
+                write_rendered_text(out, token, opts, colorizer, Some(SyntaxTokenKind::Keyword))?;
                 plain_start = end;
             } else if next_non_ws_char(text, end) == Some('(') {
-                write_plain_text(out, &text[plain_start..i])?;
-                colorizer.write_function(out, token)?;
+                write_rendered_text(out, &text[plain_start..i], opts, colorizer, None)?;
+                write_rendered_text(out, token, opts, colorizer, Some(SyntaxTokenKind::Function))?;
                 plain_start = end;
             } else {
                 // Defer plain spans so the common case stays as a single write.
@@ -504,7 +529,7 @@ fn highlight_text<W: Write>(
         i += ch.len_utf8();
     }
 
-    write_plain_text(out, &text[plain_start..])?;
+    write_rendered_text(out, &text[plain_start..], opts, colorizer, None)?;
     Ok(())
 }
 
@@ -576,6 +601,46 @@ fn write_plain_text<W: Write>(out: &mut W, text: &str) -> io::Result<()> {
     }
 
     out.write_all(text.as_bytes())
+}
+
+fn write_rendered_text<W: Write>(
+    out: &mut W,
+    text: &str,
+    opts: &DisplayOptions,
+    colorizer: &Colorizer,
+    token_kind: Option<SyntaxTokenKind>,
+) -> io::Result<()> {
+    if !opts.show_tabs {
+        return write_text_with_optional_syntax(out, text, colorizer, token_kind);
+    }
+
+    let mut plain_start = 0usize;
+    for (index, byte) in text.as_bytes().iter().enumerate() {
+        if *byte == b'\t' {
+            write_text_with_optional_syntax(out, &text[plain_start..index], colorizer, token_kind)?;
+            colorizer.write_tab_marker(out)?;
+            plain_start = index + 1;
+        }
+    }
+
+    write_text_with_optional_syntax(out, &text[plain_start..], colorizer, token_kind)
+}
+
+fn write_text_with_optional_syntax<W: Write>(
+    out: &mut W,
+    text: &str,
+    colorizer: &Colorizer,
+    token_kind: Option<SyntaxTokenKind>,
+) -> io::Result<()> {
+    if text.is_empty() {
+        return Ok(());
+    }
+
+    if let Some(kind) = token_kind {
+        colorizer.write_syntax_token(out, kind, text)
+    } else {
+        write_plain_text(out, text)
+    }
 }
 
 fn is_ident_start(ch: char) -> bool {
@@ -951,6 +1016,32 @@ mod tests {
         assert!(rendered.contains("fn"));
         assert!(rendered.contains("$"));
         assert!(rendered.ends_with('\n'));
+    }
+
+    #[test]
+    fn lightweight_syntax_highlighter_can_preserve_tabs() {
+        let mut test_opts = opts();
+        test_opts.syntax_highlighting = true;
+        test_opts.show_tabs = true;
+        let mut syntax = syntax_session_for_path(Path::new("main.rs"), &test_opts).unwrap();
+        let colorizer = Colorizer::new(true, "default");
+        let mut out = Vec::new();
+
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "fn\tmain() { return 1; }",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+
+        let rendered = String::from_utf8(out).unwrap();
+        assert!(rendered.contains("\u{1b}["));
+        assert!(rendered.contains("fn"));
+        assert!(rendered.contains("^I"));
+        assert!(rendered.contains("return"));
     }
 
     #[test]

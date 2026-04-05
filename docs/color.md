@@ -42,3 +42,5 @@ Common Lisp-family files such as `*.el`, `*.clj`, `*.rkt`, and `*.scm` also pick
 Extensionless build files like `Dockerfile`, `Containerfile`, `Makefile`, `GNUmakefile`, `Procfile`, `Gemfile`, and `Justfile` also get comment-aware highlighting.
 SQL files get a broader keyword set, and markup-oriented extensions such as `*.md`, `*.markdown`, `*.org`, `*.rst`, and `*.adoc` stay eligible for embedded tag coloring.
 Common infrastructure and build files such as `CMakeLists.txt`, `build.gradle`, `build.gradle.kts`, `build.zig`, `main.tf`, `main.tfvars`, `*.jsonc`, `*.lua`, `*.zig`, and `*.json` also receive focused comment and keyword rules.
+Tab rendering with `-T` stays compatible with syntax highlighting, so code remains colorized while indentation markers are shown.
+The more destructive nonprinting mode `-v` still bypasses syntax highlighting to preserve the byte-safe display contract.
