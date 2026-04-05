@@ -357,6 +357,9 @@ struct SyntaxSession {
     extra_keywords: &'static [&'static str],
     case_insensitive_keywords: bool,
     markup: bool,
+    bare_keys: bool,
+    quoted_keys: bool,
+    section_headers: bool,
 }
 
 fn syntax_session_for_path(path: &Path, opts: &DisplayOptions) -> Option<SyntaxSession> {
@@ -377,6 +380,9 @@ fn syntax_session_from_path(path: &Path) -> SyntaxSession {
         extra_keywords: extra_keywords_for_path(path),
         case_insensitive_keywords: case_insensitive_keywords_for_path(path),
         markup: is_markup_file(path),
+        bare_keys: bare_keys_for_path(path),
+        quoted_keys: quoted_keys_for_path(path),
+        section_headers: section_headers_for_path(path),
     }
 }
 
@@ -546,6 +552,7 @@ fn highlight_text<W: Write>(
 
     let mut i = 0usize;
     let mut plain_start = 0usize;
+    let mut line_has_non_whitespace = false;
     let bytes = text.as_bytes();
 
     while i < bytes.len() {
@@ -567,6 +574,24 @@ fn highlight_text<W: Write>(
         }
 
         let ch = text[i..].chars().next().unwrap_or_default();
+        if syntax.section_headers && !line_has_non_whitespace && ch == '[' {
+            if let Some(end) = text[i..].find(']') {
+                let end = i + end + 1;
+                write_rendered_text(out, &text[plain_start..i], opts, colorizer, None)?;
+                write_rendered_text(
+                    out,
+                    &text[i..end],
+                    opts,
+                    colorizer,
+                    Some(SyntaxTokenKind::Keyword),
+                )?;
+                plain_start = end;
+                i = end;
+                line_has_non_whitespace = true;
+                continue;
+            }
+        }
+
         if syntax.markup && ch == '<' {
             if let Some(end) = text[i..].find('>') {
                 let end = i + end + 1;
@@ -586,16 +611,16 @@ fn highlight_text<W: Write>(
 
         if ch == '"' || ch == '\'' || ch == '`' {
             let end = scan_quoted(text, i, ch);
+            let token_kind = if syntax.quoted_keys && next_non_ws_char(text, end) == Some(':') {
+                SyntaxTokenKind::Keyword
+            } else {
+                SyntaxTokenKind::String
+            };
             write_rendered_text(out, &text[plain_start..i], opts, colorizer, None)?;
-            write_rendered_text(
-                out,
-                &text[i..end],
-                opts,
-                colorizer,
-                Some(SyntaxTokenKind::String),
-            )?;
+            write_rendered_text(out, &text[i..end], opts, colorizer, Some(token_kind))?;
             plain_start = end;
             i = end;
+            line_has_non_whitespace = true;
             continue;
         }
 
@@ -611,13 +636,18 @@ fn highlight_text<W: Write>(
             )?;
             plain_start = end;
             i = end;
+            line_has_non_whitespace = true;
             continue;
         }
 
         if is_ident_start(ch) {
             let end = scan_ident(text, i);
             let token = &text[i..end];
-            if keyword_matches(token, KEYWORDS, false)
+            let is_bare_key = syntax.bare_keys
+                && !line_has_non_whitespace
+                && matches!(next_non_ws_char(text, end), Some('=') | Some(':'));
+            if is_bare_key
+                || keyword_matches(token, KEYWORDS, false)
                 || keyword_matches(
                     token,
                     syntax.extra_keywords,
@@ -635,9 +665,13 @@ fn highlight_text<W: Write>(
                 // Defer plain spans so the common case stays as a single write.
             }
             i = end;
+            line_has_non_whitespace = true;
             continue;
         }
 
+        if !ch.is_whitespace() {
+            line_has_non_whitespace = true;
+        }
         i += ch.len_utf8();
     }
 
@@ -770,6 +804,7 @@ fn comment_markers_for_path(path: &Path) -> &'static [&'static str] {
             | "rakefile" | "gemfile" | "brewfile" | "justfile" | "vagrantfile"
             | "cmakelists.txt" | ".dockerignore" | ".env" | ".envrc" | ".gitignore"
             | ".gitmodules" | ".npmignore" | ".editorconfig" => return &["#"],
+            "go.mod" => return &["//"],
             "build.gradle"
             | "settings.gradle"
             | "build.gradle.kts"
@@ -812,9 +847,10 @@ fn extra_keywords_for_path(path: &Path) -> &'static [&'static str] {
             "dockerfile" | "containerfile" => return DOCKERFILE_KEYWORDS,
             "makefile" | "gnumakefile" => return MAKEFILE_KEYWORDS,
             ".bashrc" | ".bash_profile" | ".bash_login" | ".profile" | ".zshrc" | ".zprofile"
-            | ".zlogin" | ".envrc" => return SHELL_KEYWORDS,
+            | ".zlogin" | ".envrc" | ".env" => return SHELL_KEYWORDS,
             "flake.nix" | "shell.nix" | "default.nix" | "home.nix" => return NIX_KEYWORDS,
             "cmakelists.txt" => return CMAKE_KEYWORDS,
+            "go.mod" => return GO_MOD_KEYWORDS,
             "build.gradle" | "settings.gradle" | "build.gradle.kts" | "settings.gradle.kts" => {
                 return GRADLE_KEYWORDS
             }
@@ -836,6 +872,7 @@ fn extra_keywords_for_path(path: &Path) -> &'static [&'static str] {
         "yaml" | "yml" => YAML_KEYWORDS,
         "toml" => TOML_KEYWORDS,
         "tf" | "tfvars" | "hcl" | "terraform" => TERRAFORM_KEYWORDS,
+        "mod" => GO_MOD_KEYWORDS,
         "nix" => NIX_KEYWORDS,
         "lua" => LUA_KEYWORDS,
         "zig" => ZIG_KEYWORDS,
@@ -882,6 +919,79 @@ fn is_markup_file(path: &Path) -> bool {
             | "rst"
             | "adoc"
             | "asciidoc"
+    )
+}
+
+fn bare_keys_for_path(path: &Path) -> bool {
+    if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
+        match name.to_ascii_lowercase().as_str() {
+            "cargo.toml" | "pyproject.toml" | "pipfile" | "go.mod" | ".env" | ".envrc"
+            | ".editorconfig" | ".gitconfig" | "package.json" | "package-lock.json"
+            | "composer.json" | "deno.json" | "deno.jsonc" => return true,
+            _ => {}
+        }
+    }
+
+    matches!(
+        path.extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str(),
+        "toml"
+            | "ini"
+            | "cfg"
+            | "conf"
+            | "env"
+            | "envrc"
+            | "yaml"
+            | "yml"
+            | "hcl"
+            | "tf"
+            | "tfvars"
+            | "mod"
+            | "json"
+            | "jsonc"
+            | "json5"
+    )
+}
+
+fn quoted_keys_for_path(path: &Path) -> bool {
+    if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
+        match name.to_ascii_lowercase().as_str() {
+            "package.json" | "package-lock.json" | "composer.json" | "deno.json" | "deno.jsonc" => {
+                return true
+            }
+            _ => {}
+        }
+    }
+
+    matches!(
+        path.extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str(),
+        "json" | "jsonc" | "json5"
+    )
+}
+
+fn section_headers_for_path(path: &Path) -> bool {
+    if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
+        match name.to_ascii_lowercase().as_str() {
+            "cargo.toml" | "pyproject.toml" | "pipfile" | "go.mod" | ".env" | ".envrc"
+            | ".editorconfig" | ".gitconfig" => return true,
+            _ => {}
+        }
+    }
+
+    matches!(
+        path.extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str(),
+        "toml" | "ini" | "cfg" | "conf"
     )
 }
 
@@ -1063,6 +1173,19 @@ const NIX_KEYWORDS: &[&str] = &[
     "derivation",
     "mkDerivation",
     "stdenv",
+];
+
+const GO_MOD_KEYWORDS: &[&str] = &[
+    "exclude",
+    "go",
+    "module",
+    "require",
+    "replace",
+    "retract",
+    "tool",
+    "toolchain",
+    "use",
+    "workspace",
 ];
 
 #[cfg(test)]
@@ -1408,6 +1531,118 @@ mod tests {
         assert!(rendered.contains("\u{1b}["));
         assert!(rendered.contains("let"));
         assert!(rendered.contains("import"));
+    }
+
+    #[test]
+    fn toml_manifests_highlight_sections_and_keys() {
+        let test_opts = {
+            let mut opts = opts();
+            opts.syntax_highlighting = true;
+            opts
+        };
+        let mut syntax = syntax_session_for_path(Path::new("Cargo.toml"), &test_opts).unwrap();
+        let colorizer = Colorizer::new(true, "default");
+        let mut out = Vec::new();
+
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "[package]",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "name = \"xcat\"",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+
+        let rendered = String::from_utf8(out).unwrap();
+        assert!(rendered.contains("\u{1b}["));
+        assert!(rendered.contains(&colorizer.colorize_keyword("[package]")));
+        assert!(rendered.contains(&colorizer.colorize_keyword("name")));
+        assert!(rendered.contains(&colorizer.colorize_string("\"xcat\"")));
+    }
+
+    #[test]
+    fn json_manifests_highlight_keys_as_keywords() {
+        let test_opts = {
+            let mut opts = opts();
+            opts.syntax_highlighting = true;
+            opts
+        };
+        let mut syntax = syntax_session_for_path(Path::new("package.json"), &test_opts).unwrap();
+        let colorizer = Colorizer::new(true, "default");
+        let mut out = Vec::new();
+
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            r#"{"name": "xcat", "version": "1.0.0"}"#,
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+
+        let rendered = String::from_utf8(out).unwrap();
+        assert!(rendered.contains("\u{1b}["));
+        assert!(rendered.contains(&colorizer.colorize_keyword("\"name\"")));
+        assert!(rendered.contains(&colorizer.colorize_keyword("\"version\"")));
+        assert!(rendered.contains(&colorizer.colorize_string("\"xcat\"")));
+        assert!(rendered.contains(&colorizer.colorize_string("\"1.0.0\"")));
+    }
+
+    #[test]
+    fn go_mod_files_highlight_directives_and_comments() {
+        let test_opts = {
+            let mut opts = opts();
+            opts.syntax_highlighting = true;
+            opts
+        };
+        let mut syntax = syntax_session_for_path(Path::new("go.mod"), &test_opts).unwrap();
+        let colorizer = Colorizer::new(true, "default");
+        let mut out = Vec::new();
+
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "module example.com/demo",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "require example.com/lib v1.2.3",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+        highlight_line(
+            &mut out,
+            &mut syntax,
+            "// comment",
+            &test_opts,
+            &colorizer,
+            true,
+        )
+        .unwrap();
+
+        let rendered = String::from_utf8(out).unwrap();
+        assert!(rendered.contains("\u{1b}["));
+        assert!(rendered.contains(&colorizer.colorize_keyword("module")));
+        assert!(rendered.contains(&colorizer.colorize_keyword("require")));
+        assert!(rendered.contains(&colorizer.colorize_comment("// comment")));
     }
 
     #[test]

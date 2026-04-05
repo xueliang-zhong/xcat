@@ -27,6 +27,7 @@ xcat -b -E notes.txt
 - `--list-themes`: print available palette names and exit
 - `-c`, `--count-lines`: print a summary count after concatenation
 - unreadable inputs are reported on stderr and later files still get processed, matching GNU `cat`
+- common config manifests like `Cargo.toml`, `pyproject.toml`, `go.mod`, `package.json`, `.env`, and `.editorconfig` colorize by default when color is enabled
 
 ## Precedence
 

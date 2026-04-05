@@ -44,5 +44,6 @@ Shell rc files like `.bashrc`, `.zshrc`, and `.profile` use lightweight shell ke
 Nix files like `flake.nix`, `shell.nix`, and `default.nix` get similar keyword coverage for `let`/`in` style expressions.
 SQL files get a broader keyword set, and markup-oriented extensions such as `*.md`, `*.markdown`, `*.org`, `*.rst`, and `*.adoc` stay eligible for embedded tag coloring.
 Common infrastructure and build files such as `CMakeLists.txt`, `build.gradle`, `build.gradle.kts`, `build.zig`, `main.tf`, `main.tfvars`, `*.jsonc`, `*.lua`, `*.zig`, and `*.json` also receive focused comment and keyword rules.
+Common manifest and config files such as `Cargo.toml`, `pyproject.toml`, `go.mod`, `package.json`, `.env`, `.envrc`, `.editorconfig`, and `deno.json` additionally color keys and section headers, which makes them much easier to scan in `less`, `vim`, and `fzf`.
 Tab rendering with `-T` stays compatible with syntax highlighting, so code remains colorized while indentation markers are shown.
 The more destructive nonprinting mode `-v` still bypasses syntax highlighting to preserve the byte-safe display contract.

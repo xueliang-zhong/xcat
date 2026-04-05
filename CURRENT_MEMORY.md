@@ -25,3 +25,4 @@
 - Explicit `--syntax` should override the config highlight toggle for that invocation; treat `color.syntax_highlighting` as the automatic-detection gate, not a hard ceiling on user-requested syntax color.
 - Tab rendering with `-T` can share the syntax-highlighting path because tabs are ASCII-safe; keep `-v` excluded from that path because nonprinting byte rendering breaks UTF-8 token boundaries.
 - GNU-cat-style error handling matters for multi-source runs: report unreadable inputs on stderr, flush any buffered stdout first, and keep processing later files unless stdout itself fails.
+- Common manifest/config files such as `Cargo.toml`, `pyproject.toml`, `go.mod`, `package.json`, `.env`, and `.editorconfig` benefit from key-aware and section-aware heuristics, not just longer keyword lists.

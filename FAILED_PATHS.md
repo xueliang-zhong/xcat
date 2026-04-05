@@ -8,3 +8,4 @@
 - Unconditional stdin raw-copy fast path: bypasses color highlighting for piped text when ANSI output is enabled.
 - Globally excluding any CRLF body from syntax highlighting: too conservative; it blocks safe color coverage when end markers are off.
 - Trying to keep syntax highlighting active under `-v`: byte-wise nonprinting rendering destroys UTF-8 token boundaries, so this path should stay disabled.
+- Only adding filename-specific keyword lists for config manifests like `Cargo.toml` and `package.json`: too narrow, because common key/value structures stay mostly plain without key-aware heuristics.
